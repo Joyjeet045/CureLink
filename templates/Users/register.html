@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card mx-4 mx-md-5 shadow-5-strong" style="
+        
+        background: hsla(0, 0%, 100%, 0.8);
+        backdrop-filter: blur(30px);
+        ">
+		<div class="card-body py-5 px-md-5">
+
+			<div class="row d-flex justify-content-center">
+				<div class="col-lg-8">
+					<h2 class="fw-bold mb-5">Sign Up!</h2>
+          <form method="POST" action="/register/">
+            {% csrf_token %}
+            <div class="row">
+              <div class="col-md-6 mb-4">
+                <div class="form-outline">
+                  <input type="text" id="first_name" class="form-control" name="first_name"
+                    placeholder="First name*" required />
+                  <label class="form-label" for="first_name">First name</label>
+                </div>
+              </div>
+              <div class="col-md-6 mb-4">
+                <div class="form-outline">
+                  <input type="text" id="last_name" class="form-control" name="last_name"
+                    placeholder="Last name" />
+                  <label class="form-label" for="last_name">Last name</label>
+                </div>
+              </div>
+            </div>
+            <div class="form-outline mb-4">
+							<input type="text" id="username" class=" form-control" name="username"
+								placeholder="Username" required />
+							<label class="form-label" for="username">Username</label>
+						</div>
+
+						<div class="form-outline mb-4">
+							<input type="email" id="email" class=" form-control" name="email" placeholder="Email"
+								required />
+							<label class="form-label" for="email">Email</label>
+						</div>
+            <div class="form-outline mb-4">
+							<input type="password" id="password1" class="form-control" name="password1"
+								placeholder="Password" required />
+							<label class="form-label" for="password1">Password</label>
+						</div>
+
+						<div class="form-outline mb-4">
+							<input type="password" id="password2" class="form-control" name="password2"
+								placeholder="Re-enter your password" required />
+							<label class="form-label" for="password2"> Confirm Password</label>
+						</div>
+						<br>
+
+            <!-- Staff Inputs -->
+						<p class="text-center">Are you a staff member? If yes, enter your admin key!</p>
+            <div class="form-outline mb-4">
+							<input type="password" id="admin_key" class="form-control" name="admin_key"
+								placeholder="Admin key" />
+							<label class="form-label" for="admin_key"> Admin key </label>
+						</div>
+            <!-- block buttons are full-width -->
+            <input type="submit" class="btn btn-primary btn-block" value="Register with a Click">
+          </form>
+          <div class="text-center">
+            <p>
+							Already have an account? <a href="{% url 'login' %}" class="ml-2">Login</a>
+						</p>
+          </div>
+          <div class="text-center">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'info' in message.tags %}alert-warning{% endif %}" role="alert">
+              {{message}}
+            </div>
+            {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+</div>
+{% endblock %}
