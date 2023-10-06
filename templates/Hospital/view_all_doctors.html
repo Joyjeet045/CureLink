@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  /* Define a flex container for the doctor profiles */
+  .doctor-profile-container {
+    display: flex;
+    flex-wrap: wrap; /* Allows the profiles to wrap to the next line if the container width is limited */
+    justify-content: space-between; /* Adjust this based on your preferred alignment */
+  }
+
+  /* Doctor Profile Styles (same as before) */
+  .doctor-profile {
+    max-width: 400px;
+    margin: 0 10px 20px; /* Add some margin between profiles */
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    text-align: center;
+  }
+
+  .doctor-profile h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+
+  .profile-pic {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 20px;
+  }
+
+  .department,
+  .timings,
+  .qualifications {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+
+  /* Button Styles */
+  .full-profile-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    text-decoration: none;
+    margin-top: 20px;
+  }
+
+  .full-profile-button:hover {
+    background-color: #0056b3;
+  }
+  .book-appointment-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #e61c1c;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    text-decoration: none;
+    margin-top: 20px;
+  }
+
+  .book-appointment-button:hover {
+      background-color: darkred; /* Change color on hover */
+  }
+</style>
+
+<div class="doctor-profile-container">
+  {% for doctor in doctors %}
+    <div class="doctor-profile">
+      <div class="doctor-profile-header">
+        <h1>{{ doctor.get_name }}</h1>
+        <img src="{{ doctor.profile_pic.url }}" alt="{{ doctor.get_name }}" class="profile-pic">
+      </div>
+      <div class="doctor-details">
+        <p class="department"><b>Department-</b>{{ doctor.department }}</p>
+        <p><u><b>Timings:</b></u></p>
+        <ul>
+          {% for timing in timings %}
+            {% if timing.doctor == doctor %}
+              <li style="list-style: none;">{{ timing.day_of_week }}: {{ timing.start_time|time:"H:i" }} - {{ timing.end_time|time:"H:i" }}</li>
+            {% endif %}
+          {% empty %}
+            <li style="list-style: none;">None</li>
+          {% endfor %}
+        </ul>        
+        <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
+        <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>
+        <a href="{% url 'doctor_appointment' doctor_id=doctor.id hospital_id=hospital.id %}" class="book-appointment-button">Book An Appointment</a>
+        
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

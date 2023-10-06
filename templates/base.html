@@ -10,24 +10,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Curelink</title>
+  <title>Curelink</title>
 </head>
 <body>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
-  
   <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.0.0/mdb.min.css" rel="stylesheet" />
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
-      <a href="#" class="navbar-brand">CureLink</a>
-      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
-      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-      <i class="fas fa-bars"></i></button>
-      <div class="collapse navbar-collapse" id="navbarNav">
+      <a href="{% url 'home' %}" class="navbar-brand">CureLink</a>
+      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="fas fa-bars"></i>
+      </button>
+      
+      <div class="collapse navbar-collapse d-flex  justify-content-between" id="navbarNav">
         <ul class="navbar-nav">
           {% if user.is_authenticated %}
           <li class="nav-item">
-            <a class="nav-link">Welcome, {{ user.first_name }}</a>                        
+            <a class="nav-link">Welcome {{ user.first_name }}</a>                        
           </li>
           {% endif %}
           <li class="nav-item">
@@ -44,6 +44,9 @@
           {% else %}
           <li class="nav-item"><a href="/login" class="nav-link">Login</a></li>
           {% endif %}
+        </ul>
+        <ul class="navbar-nav">
+          <a href="{% url 'doctors' %}" class="btn btn-primary">Add Doctor</a>
         </ul>
       </div>
     </div>

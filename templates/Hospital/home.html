@@ -1,0 +1,82 @@
+{% extends "base.html" %} 
+{% block content %}
+<div class="row mt-4">
+  <div class="col-md-12">
+    <form method="GET" action="">
+      <label for="state" style="color: #007BFF; font-weight: bold;">Filter by State:</label>
+      <select name="state" id="state" class="form-control" style="border-color: #007BFF;">
+        <option value="">All</option>
+        {% for state in states %}
+          <option value="{{ state.id }}">{{ state.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary" style="background-color: #007BFF; border-color: #007BFF;">Apply Filter</button>
+    </form>
+  </div>
+</div>
+
+
+<style>
+  /* Custom CSS for hospital cards */
+  .custom-hospital-card {
+    background-color: #f8f9fa; /* Background color */
+    border: 1px solid #ced4da; /* Border color */
+    border-radius: 5px; /* Rounded corners */
+    padding: 10px; /* Spacing inside the card */
+    transition: transform 0.2s; /* Smooth hover effect */
+    display: flex; /* Use flexbox to ensure equal height and width */
+    flex-direction: column; /* Arrange content vertically */
+    height: 100%; /* Ensure the card takes full height of its container */
+  }
+
+  .custom-hospital-card:hover {
+    transform: scale(1.05); /* Scale up on hover */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2); /* Box shadow on hover */
+  }
+
+  /* Adjustments for card title and description */
+  .custom-hospital-card .card-title {
+    font-size: 1.2rem; /* Title font size */
+    font-weight: bold; /* Bold text */
+  }
+
+  .custom-hospital-card .card-text {
+    font-size: 1rem; /* Description font size */
+  }
+  .star-rating {
+    font-size: 24px; 
+    color: #f0d417; /* Default star color */
+}
+
+.star-rating.filled {
+    color: #f0d417; /* Filled star color */
+}
+
+
+</style>
+
+<div class="row mt-4">
+  {% for hospital in hospitals %}
+  <div class="col-md-4" style="height: 100%; display: flex; align-items: stretch; margin-top: 10px;">
+    <div class="card mb-4 shadow-sm custom-hospital-card">
+      <img src="{{ hospital.get_url }}" alt="{{ hospital.name }}" class="card-img-top" style="flex: 1; height: 100%;">
+      <div class="card-body" style="flex: 1;height: auto; overflow: hidden;text-align: center;">
+        <h5 class="card-title">{{ hospital.name }}</h5>
+        <p class="card-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ hospital.description }}</p>
+        <div class="star-rating">
+          {% for i in list %}
+            {% if i <= hospital.average_doctor_rating %}
+              <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
+            {% else %} 
+              <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
+            {% endif %}
+          {% endfor %}
+        </div>
+        <a href="{% url 'view_all_doctors' hospital.id %}" class="btn btn-primary" style="margin-top:20px">View All Doctors</a>
+      </div>
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

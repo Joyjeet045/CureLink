@@ -1,0 +1,167 @@
+{% extends "base.html" %} 
+<!-- {% load static %} -->
+{% block content %}
+<style>
+  .container {
+  margin-top: 20px;
+}
+
+h2 {
+  color: #333;
+  font-size: 24px;
+}
+
+p {
+  font-size: 16px;
+}
+
+.available {
+  color: green;
+}
+
+.not-available {
+  color: red;
+}
+
+.contact-info {
+  margin-top: 10px;
+}
+
+h3 {
+  font-size: 30px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+ul.list-unstyled {
+    padding-left: 0;
+    list-style-type: none;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+ul.list-unstyled li {
+  margin-bottom: 20px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  background-color: #f9f9f9;
+  flex-basis: calc(33.33% - 20px); /* Three columns per row for large screens */
+  margin-right: 20px;
+}
+@media (max-width: 992px) {
+    ul.list-unstyled li {
+      flex-basis: calc(50% - 20px); /* Two columns per row for medium screens */
+    }
+  }
+
+@media (max-width: 768px) {
+  ul.list-unstyled li {
+    flex-basis: 100%; /* One column per row for very small screens */
+    margin-right: 0;
+  }
+}
+
+img.img-fluid {
+  max-width: 100%;
+}
+
+img.img-fluid {
+  max-width: 60%;
+}
+.review-card {
+    background-color: #fff; 
+    padding: 20px; 
+    margin-bottom: 20px; 
+    border: 1px solid #ccc;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Shadow */
+}
+
+.rated-by {
+    font-size: 14px;
+    color: #888;
+}
+
+.user-name {
+    font-size: 24px;
+    margin-top: 10px;
+}
+
+.rating {
+  margin-top: 10px;
+}
+
+.comment {
+    font-size: 16px;
+    margin-top: 10px;
+}
+.star-rating {
+    font-size: 24px; 
+    color: #f0d417; /* Default star color */
+}
+
+.star-rating.filled {
+    color: #f0d417; /* Filled star color */
+}
+
+</style>
+
+
+<!-- <link rel="stylesheet" type="text/css" href="{% static 'css/doctor_profile.css' %}"> -->
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-4">
+          <img src="{{ doctor.profile_pic.url }}" alt="{{ doctor.get_name }}" class="img-fluid rounded-circle">
+      </div>
+      <div class="col-md-8">
+          <h2>{{ doctor.get_name }}</h2>
+          <p>Department: {{ doctor.department }}</p>
+          <p>Status: {% if doctor.status %}<span class="available">Available</span>{% else %}<span class="not-available">Not Available</span>{% endif %}</p>
+          <p>Mobile: {{ doctor.mobile }}</p>
+          <p class="contact-info">Qualifications: {{ doctor.qualifications }}</p>
+      </div>
+  </div>
+  <div class="container mt-4">
+    <u><h3 style="text-align: center;">Find Your Doctor Also In</h3></u>
+    <ul class="list-unstyled">
+        {% for hospital in doctor.hospitals.all %}
+        <li style="text-align: center;">
+            <h4>{{ hospital.name }}</h4>
+            <p>{{ hospital.address }}</p>
+            <img src="{{ hospital.get_url }}" alt="{{ hospital.name }}" class="img-fluid">
+        </li>
+        {% endfor %}
+    </ul>
+  </div>
+  {% if top_reviews %}
+  <div class="container mt-4">
+      {% for review in top_reviews %}
+      <div class="review-card">
+          <span class="rated-by">Rated By</span>
+          <h2 class="user-name">{{ review.user }}</h2>
+          <div class="star-rating">
+              {% for i in list%}
+              {% if i <= review.rating %}
+              <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
+              {% else %}
+              <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
+              {% endif %}
+              {% endfor %}
+          </div>
+          <p class="comment">{{ review.comment }}</p>
+          
+        </div>
+        
+      </div>
+      {% endfor %}
+  </div>
+  {% else %}
+  <p>No top reviews available.</p>
+  {% endif %}
+
+  <div class="container mt-4">
+    <button class="btn btn-primary"><a href="{% url 'add_review' doctor.id %}" style="color: #ccc;">Give your own feedback</a></button>
+</div>
+</div>
+
+{% endblock %}

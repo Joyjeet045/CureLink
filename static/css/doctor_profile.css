@@ -1,0 +1,44 @@
+.container {
+  margin-top: 20px;
+}
+
+h2 {
+  color: #333;
+  font-size: 24px;
+}
+
+p {
+  font-size: 16px;
+}
+
+.available {
+  color: green;
+}
+
+.not-available {
+  color: red;
+}
+
+.contact-info {
+  margin-top: 10px;
+}
+
+h3 {
+  font-size: 20px;
+  margin-top: 20px;
+}
+
+ul.list-unstyled {
+  padding-left: 0;
+}
+
+ul.list-unstyled li {
+  margin-bottom: 20px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  background-color: #f9f9f9;
+}
+
+img.img-fluid {
+  max-width: 60%;
+}
