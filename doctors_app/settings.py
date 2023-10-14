@@ -12,7 +12,16 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
+from celery import Celery
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "doctors_app.settings")
+app=Celery("doctors_app")
+# Using Redis as the message broker
+app.config_from_object("django.conf:settings", namespace="CELERY")
+app.conf.broker_url = "redis://localhost:6379/0"
+app.conf.result_backend = "redis://localhost:6379/0"
 
+# Load task modules from all registered Django app configs.
+app.autodiscover_tasks()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -133,3 +142,10 @@ MEDIA_URL="/media/"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_USE_TLS=True
+EMAIL_PORT=587
+EMAIL_HOST_USER="joyjeetroy3@gmail.com"
+EMAIL_HOST_PASSWORD="yttt dybs vsaf lyfq"

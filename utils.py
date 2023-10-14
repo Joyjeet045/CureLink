@@ -23,12 +23,12 @@ location="Kolkata"
 # hospitals_list = Hospital.objects.all()
 # print(len(hospitals_list))  # Add this line to check if it contains data
 
-doctor=Doctor.objects.first()
+# doctor=Doctor.objects.first()
 # hospitals=doctor.hospitals.all()
 # for hospital in hospitals:
 #   print(hospital.name)
-print(doctor.profile_pic.width)
-print(doctor.profile_pic.url)
+# print(doctor.profile_pic.width)
+# print(doctor.profile_pic.url)
 
 # states = State.objects.all()
 # print(states)
@@ -37,11 +37,17 @@ print(doctor.profile_pic.url)
 # for h in hospital:
 #   print(h.state)
 
-name="Indraprastha Apollo Hospitals"
-hospital=Hospital.objects.get(name=name)
+# name="Indraprastha Apollo Hospitals"
+# hospital=Hospital.objects.get(name=name)
 
-print(hospital.hospital_pic.url)
+# print(hospital.hospital_pic.url)
 
 # print(settings.MEDIA_URL)
 
+
+
+# from datetime import date
+# from Hospitals.models import Appointment
+
+# Appointment.objects.filter(appointment_date__lt=date.today()).update(status=False)
 

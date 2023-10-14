@@ -26,32 +26,28 @@
     <div class="card-body py-5 px-md-5">
         <div class="row d-flex justify-content-center">
             <div class="col-lg-8">
-                <h2 class="fw-bold mb-5 text-center">Book an Appointment</h2>
-                <form method="POST" action="{% url 'doctor_appointment' hospital_id=hospital.id doctor_id=doctor.id %}">
+                <h2 class="fw-bold mb-5 text-center">Reschedule Appointment</h2>
+                <form method="POST" action="{% url 'reschedule_appointment' appointment_id=appointment.id %}">
                   {% csrf_token %}
                     <div id="hospital-info">
-                      <img id="hospital-pic" src="{{ hospital.get_url }}" alt="Hospital Pic">
-                      <p id="hospital-name">{{ hospital.name }}</p>
+                      <img id="hospital-pic" src="{{ appointment.hospital.get_url }}" alt="Hospital Pic">
+                      <p id="hospital-name">{{  appointment.hospital.name }}</p>
                     </div>
                     <div id="doctor-info">
-                        <img id="doctor-pic" src="{{ doctor.profile_pic.url}}" alt="Doctor Pic">
-                        <p id="doctor-name">{{ doctor.get_name }}</p>
+                        <img id="doctor-pic" src="{{ appointment.doctor.profile_pic.url }}" alt="Doctor Pic">
+                        <p id="doctor-name">{{  appointment.doctor.get_name }}</p>
                     </div>
                     <div class="mb-4">
-                      <label for="appointment_date" class="form-label">Appointment Date*</label>
-                      <input type="date" id="appointment_date" class="form-control" name="appointment_date" required>
+                      <label for="new_date" class="form-label">New Appointment Date*</label>
+                      <input type="date" id="new_date" class="form-control" name="new_date" required>
                     </div>
                     <div class="mb-4">
-                      <label for="end_time" class="form-label">Enter Your Preferable Slot*</label>
-                      <select id="end_time" class="form-control" name="end_time" required>
+                      <label for="new_time" class="form-label">New Appointment Time*</label>
+                      <select id="new_time" class="form-control" name="new_time" required>
                           <!-- Available timings will be populated here using JavaScript -->
                       </select>
-                  </div>
-                    <div class="mb-4">
-                        <label for="notes" class="form-label">Notes</label>
-                        <textarea id="notes" class="form-control" name="notes" rows="4"></textarea>
                     </div>
-                    <input type="submit" class="btn btn-primary btn-block" value="Book Appointment">
+                      <input type="submit" class="btn btn-primary btn-block" value="Book Appointment">
                 </form>
             </div>
         </div>
@@ -59,7 +55,7 @@
             {% if messages %}
             {% for message in messages %}
             <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'info' in message.tags %}alert-warning{% endif %}" role="alert">
-              {{message}}
+              {{ message }}
             </div>
             {% endfor %}
             {% endif %}
@@ -70,23 +66,23 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
   $(document).ready(function () {
-      $("#appointment_date").on("change", function () {
-        var doctorData = JSON.parse('{{ doctor_json|safe}}');
+      $("#new_date").on("change", function () {
+        var doctorData = JSON.parse('{{ doctor_json|safe }}');
         var hospitalData = JSON.parse('{{ hospital_json|safe }}');
-        console.log('doctorData:',doctorData[0].pk);
-        console.log('hospitalData:',hospitalData[0].fields.name);
+        console.log('doctorData:', doctorData[0].pk);
+        console.log('hospitalData:', hospitalData[0].fields.name);
         var selectedDate = new Date(this.value);
         $.ajax({
-          url:'/get_available_timings/',
-          method:"GET",
-          data:{
-            selected_date:selectedDate,
-            hospital:hospitalData[0].fields.name,
-            doctor:doctorData[0].pk
+          url: '/get_available_timings/',
+          method: "GET",
+          data: {
+            selected_date: selectedDate,
+            hospital: hospitalData[0].fields.name,
+            doctor: doctorData[0].pk
           },
           success: function (data) {
             // Populate the select input with available timings
-            var select = $("#end_time");
+            var select = $("#new_time");
             select.empty();
             for (var i = 0; i < data.length; i++) {
                 select.append(new Option(data[i].start_time + " - " + data[i].end_time, data[i].start_time));

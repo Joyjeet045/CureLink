@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Avg
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from datetime import date,datetime
 # Create your models here.
 doctor_departments = [
   "Cardiology",
@@ -106,28 +107,18 @@ class Appointment(models.Model):
   user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='appointments')
   doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)  
   hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE)  
-  day_of_week = models.CharField(max_length=10, choices=[
-      ('Monday', 'Monday'),
-      ('Tuesday', 'Tuesday'),
-      ('Wednesday', 'Wednesday'),
-      ('Thursday', 'Thursday'),
-      ('Friday', 'Friday'),
-      ('Saturday', 'Saturday'),
-      ('Sunday', 'Sunday'),
-  ])
   appointment_date = models.DateField()
-  start_time = models.TimeField()
-  end_time = models.TimeField()
-  
+  time = models.TimeField()
+  notes=models.TextField(blank=True)
+  status=models.BooleanField(default=True)
   # Add more fields as needed, such as appointment status, notes, etc.
 
   def __str__(self):
     return f"Appointment with Dr. {self.doctor.get_name} at {self.hospital.name} on {self.appointment_date}"
-
+  def save(self, *args, **kwargs):
+    if self.appointment_date<date.today():
+      self.status = False  # Set status to False if the date is in the past
+    super(Appointment, self).save(*args, **kwargs)
   class Meta:
-    ordering = ['appointment_date', 'start_time']
-
-
-
-
+    ordering = ['appointment_date', 'time']
 

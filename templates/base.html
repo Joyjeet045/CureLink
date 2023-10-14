@@ -36,10 +36,10 @@
           {% if user.is_authenticated %}
           {% if user.is_staff %}
             <li class="nav-item">
-              <a class="nav-link" href="/add-doctor">Add Doctor</a>
+              <a class="nav-link" href="/add-doctors">Add Doctor</a>
             </li>
           {% endif %}
-          <li class="nav-item"><a href="/myappointments" class="nav-link">My Appointments</a></li>         
+          <li class="nav-item"><a href="{% url 'user_dashboard' %}" class="nav-link">My Dashboard</a></li>         
           <li class="nav-item"><a href="/logout" class="nav-link">Logout</a></li>         
           {% else %}
           <li class="nav-item"><a href="/login" class="nav-link">Login</a></li>

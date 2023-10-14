@@ -13,11 +13,11 @@
                     {% csrf_token %}
                     <div class="mb-4">
                         <label for="firstname" class="form-label">First Name*</label>
-                        <input type="text" id="firstname" class="form-control" name="firstname" required>
+                        <input type="text" id="firstname" class="form-control" name="first_name" required>
                     </div>
                     <div class="mb-4">
                         <label for="lastname" class="form-label">Last Name*</label>
-                        <input type="text" id="lastname" class="form-control" name="lastname" required>
+                        <input type="text" id="lastname" class="form-control" name="last_name" required>
                     </div>
                     <div class="mb-4">
                         <label for="profile_pic" class="form-label">Profile Picture</label>
@@ -43,8 +43,8 @@
                             <option value="{{ hospital.id }}">{{ hospital.name }} - {{hospital.state}}</option>
                             {% endfor %}
                         </select>
+                        <input type="submit" class="btn btn-primary btn-block" value="Add Doctor">
                     </div>
-                    <input type="submit" class="btn btn-primary btn-block" value="Add Doctor">
                 </form>
             </div>
         </div>

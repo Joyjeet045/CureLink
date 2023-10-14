@@ -1,10 +1,12 @@
 from django.shortcuts import render,get_object_or_404,redirect
-
+from django.core import serializers
 from django.db import transaction
+from django.http import JsonResponse
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
-from .models import Doctor,Hospital,State,Timing,Review
+from .models import Doctor,Hospital,State,Timing,Review,Appointment
 from .constants import doctor_departments
+from datetime import datetime,date
 # Create your views here.
 def is_admin(user):
   return user.is_staff
@@ -43,6 +45,10 @@ def add_doctor(request):
   state=State.objects.all()
   return render(request,'Hospital/create_doctor.html',{'hospital_ch':hospitals_list,'state_ch':state,'depts':doctor_departments})
 
+def view_doctors(request):
+  doctors=Doctor.objects.all()
+  return render(request,'Hospital/view_doctors.html',{'doctors':doctors})
+
 def view_all_doctors(request,hospital_id):
   hospital=get_object_or_404(Hospital,pk=hospital_id)
   doctors=hospital.doctors.all()
@@ -72,4 +78,76 @@ def doctor_profile(request,doctor_id):
   return render(request,'Hospital/view_profile.html',{'doctor':doctor,'top_reviews':top_reviews,'list':list})
   
 def doctor_appointments(request,hospital_id,doctor_id):
-  return render(request,'Hospital/book_appointment.html')
+  doctor=Doctor.objects.get(id=doctor_id)
+  hospital=Hospital.objects.get(id=hospital_id)
+  doctor_json = serializers.serialize('json', [doctor])
+  hospital_json = serializers.serialize('json', [hospital])
+  if request.method=='POST':
+    appointment_date_str = request.POST.get('appointment_date')
+    appointment_date = datetime.strptime(appointment_date_str, '%Y-%m-%d').date()  
+    time_str=request.POST.get('end_time')
+    time = datetime.strptime(time_str,'%H:%M:%S').time()
+    notes=request.POST.get('notes')
+    user=request.user
+    appointment=Appointment(
+      user=user,
+      doctor=doctor,
+      hospital=hospital,
+      appointment_date=appointment_date,
+      time=time,
+      notes=notes
+    )
+    appointment.save()
+    messages.success(request, 'Appointment booked successfully.')
+    return redirect('/dashboard/me/')
+  return render(request,'Hospital/book_appointment.html',{'doctor':doctor,'hospital':hospital,'doctor_json': doctor_json,'hospital_json': hospital_json})
+
+def get_available_timings(request):
+  if request.method == 'GET':
+    selected_date_str= request.GET.get('selected_date')
+    hospital=request.GET.get('hospital')
+    doctor=request.GET.get('doctor')
+    selected_date=datetime.strptime(selected_date_str,'%a %b %d %Y %H:%M:%S GMT%z (India Standard Time)')
+    day_of_week = selected_date.strftime("%A")  # Convert the selected date to the day of the week
+    
+    # Query your Timings model to get available timings for the specified day_of_week
+    available_timings = Timing.objects.filter(day_of_week=day_of_week,doctor__id=doctor,hospital__name=hospital).values('start_time', 'end_time')
+    
+    return JsonResponse(list(available_timings), safe=False)
+  
+def dashboard(request):
+  user=request.user
+  today=date.today()
+  upcoming_appointments=Appointment.objects.filter(user=user,appointment_date__gte=today)
+  past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
+  return render(request, 'Hospital/dashboard.html', {'upcoming_appointments': upcoming_appointments, 'past_appointments': past_appointments})
+
+def cancel_appointment(request,appointment_id):
+  try:
+    appointment=Appointment.objects.get(id=appointment_id)
+    appointment.delete()
+    messages.success(request, 'Appointment canceled successfully.')
+  except Appointment.DoesNotExist:
+      messages.error(request, 'Appointment not found.')
+  return redirect('user_dashboard')
+
+def reschedule_appointment(request, appointment_id):
+    try:
+        appointment = Appointment.objects.get(id=appointment_id)
+        doctor_json = serializers.serialize('json', [appointment.doctor])
+        hospital_json = serializers.serialize('json', [appointment.hospital])
+        if request.method == 'POST':
+            new_date_str = request.POST.get('new_date')
+            new_time_str = request.POST.get('new_time')
+            new_date = datetime.strptime(new_date_str, '%Y-%m-%d').date()
+            new_time = datetime.strptime(new_time_str, '%H:%M:%S').time()
+            appointment.appointment_date = new_date
+            appointment.time = new_time
+            appointment.save()  
+            messages.success(request, 'Appointment rescheduled successfully.')
+            return redirect('user_dashboard')  
+        else:
+            return render(request, 'Hospital/reschedule_form.html', {'appointment': appointment,'doctor_json':doctor_json,'hospital_json':hospital_json})
+    except Appointment.DoesNotExist:
+        messages.error(request, 'Appointment not found.')
+        return redirect('user_dashboard')
