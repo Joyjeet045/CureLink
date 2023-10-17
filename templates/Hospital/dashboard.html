@@ -46,9 +46,7 @@
                         <p>Time: {{ appointment.time }}</p>
                         <p>Doctor: {{ appointment.doctor.get_name }}</p>
                         <p>Hospital: {{ appointment.hospital.name }}</p>
-                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">
-                            {{ appointment.status|yesno:"Upcoming,Past" }}
-                        </span></p>                                             
+                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>                                             
                         <a href="{% url 'cancel_appointment' appointment.id %}">Cancel</a>
                         <a href="{% url 'reschedule_appointment' appointment.id %}">Reschedule</a>
                     </div>
@@ -62,7 +60,7 @@
                         <p>Time: {{ appointment.time }}</p>
                         <p>Doctor: {{ appointment.doctor.get_name }}</p>
                         <p>Hospital: {{ appointment.hospital.name }}</p>
-                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">{{ appointment.status }}</span></p>
+                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
                     </div>
                 {% endfor %}
             </div>

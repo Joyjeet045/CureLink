@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Avg
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from datetime import date,datetime
+from datetime import date
 # Create your models here.
 doctor_departments = [
   "Cardiology",
