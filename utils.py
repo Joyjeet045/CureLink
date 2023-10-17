@@ -3,9 +3,9 @@ from django.core.wsgi import get_wsgi_application
 from django.conf import settings
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "doctors_app.settings")
 application = get_wsgi_application()
-from Hospitals.models import Hospital,Doctor,State
-hospital_name = "Apollo Gleneagles Hospitals" 
-location="Kolkata"
+# from Hospitals.models import Hospital,Doctor,State
+# hospital_name = "Apollo Gleneagles Hospitals" 
+# location="Kolkata"
 # hospital=Hospital.objects.filter(location=location)
 # for h in hospital:
 #   print(h.description)
@@ -51,3 +51,16 @@ location="Kolkata"
 
 # Appointment.objects.filter(appointment_date__lt=date.today()).update(status=False)
 
+from geopy.geocoders import Nominatim
+
+# Create a Nominatim geocoder instance
+geolocator = Nominatim(user_agent="GetLoc")
+
+# Geocode an address to get its coordinates
+location = geolocator.geocode("Kangra")
+
+if location:
+    print("Latitude:", location.latitude)
+    print("Longitude:", location.longitude)
+else:
+    print("Location not found.")

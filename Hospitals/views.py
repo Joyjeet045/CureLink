@@ -2,14 +2,25 @@ from django.shortcuts import render,get_object_or_404,redirect
 from django.core import serializers
 from django.db import transaction
 from django.http import JsonResponse
+from django.core.paginator import Paginator
+from django.db.models import Avg,Count
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from .models import Doctor,Hospital,State,Timing,Review,Appointment
 from .constants import doctor_departments
 from datetime import datetime,date
+from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
 # Create your views here.
 def is_admin(user):
   return user.is_staff
+
+def geocode_hospitals(h_location):
+  geolocator = Nominatim(user_agent="GetLoc")
+  location = geolocator.geocode(h_location)
+  if location is not None:
+    return location.latitude, location.longitude
+  return None,None
 
 def home_page(request):
   states=State.objects.all()
@@ -19,7 +30,31 @@ def home_page(request):
     hospitals= Hospital.objects.filter(state=state_filter)
   else:
     hospitals = Hospital.objects.all()
-  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list})
+  paginator = Paginator(hospitals, 8)  # 8 items per page
+  page = request.GET.get('page')
+  hospitals = paginator.get_page(page)
+  nearest_hospitals=[]
+  if request.method=='POST':
+    user_latitude=request.POST.get('user_latitude')
+    user_longitude = request.POST.get('user_longitude')
+    user_coords=[float(user_latitude),float(user_longitude)]
+    hospitals=Hospital.objects.all()
+    for hospital in hospitals:
+      result=geocode_hospitals(hospital.location)
+      if result[0] is not None and result[1] is not None:
+        hospital_latitude, hospital_longitude = result
+        hospital_coords = (hospital_latitude, hospital_longitude)
+        distance=geodesic(user_coords,hospital_coords).kilometers
+        nearest_hospitals.append((hospital, distance))
+    nearest_hospitals=sorted(nearest_hospitals,key=lambda x:x[1])[:5]
+    print(nearest_hospitals)
+
+  past_appointments = Appointment.objects.filter(user=request.user)
+  departments = set(appointment.doctor.department for appointment in past_appointments)
+  shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
+
+  top_doctors=Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
+  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors})
 @transaction.atomic
 # @user_passes_test(is_admin,login_url="{% url 'login' %}")
 def add_doctor(request):
@@ -151,3 +186,5 @@ def reschedule_appointment(request, appointment_id):
     except Appointment.DoesNotExist:
         messages.error(request, 'Appointment not found.')
         return redirect('user_dashboard')
+
+

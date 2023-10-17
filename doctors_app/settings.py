@@ -149,3 +149,5 @@ EMAIL_USE_TLS=True
 EMAIL_PORT=587
 EMAIL_HOST_USER="joyjeetroy3@gmail.com"
 EMAIL_HOST_PASSWORD="yttt dybs vsaf lyfq"
+
+APPEND_SLASH=False

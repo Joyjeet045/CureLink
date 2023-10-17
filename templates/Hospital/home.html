@@ -1,22 +1,82 @@
 {% extends "base.html" %} 
 {% block content %}
-<div class="row mt-4">
-  <div class="col-md-12">
-    <form method="GET" action="">
-      <label for="state" style="color: #007BFF; font-weight: bold;">Filter by State:</label>
-      <select name="state" id="state" class="form-control" style="border-color: #007BFF;">
-        <option value="">All</option>
-        {% for state in states %}
-          <option value="{{ state.id }}">{{ state.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-primary" style="background-color: #007BFF; border-color: #007BFF;">Apply Filter</button>
-    </form>
-  </div>
-</div>
-
-
 <style>
+  h2 {
+  font-size: 24px; /* Adjust the font size as needed */
+  font-weight: bold;
+  text-align: center; /* Center the text */
+  margin-top: 20px; /* Add some top margin for spacing */
+  text-decoration: underline; /* Underline the text */
+}
+  /* Define a flex container for the doctor profiles */
+  .doctor-profile-container {
+    display: flex;
+    flex-wrap: wrap; /* Allows the profiles to wrap to the next line if the container width is limited */
+    justify-content: space-between; /* Adjust this based on your preferred alignment */
+  }
+
+  /* Doctor Profile Styles (same as before) */
+  .doctor-profile {
+    max-width: 400px;
+    margin: 0 10px 20px; /* Add some margin between profiles */
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    text-align: center;
+  }
+
+  .doctor-profile h1 {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+
+  .profile-pic {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin: 0 auto 20px;
+  }
+
+  .department,
+  .timings,
+  .qualifications {
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+
+  /* Button Styles */
+  .full-profile-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007BFF;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    text-decoration: none;
+    margin-top: 20px;
+  }
+
+  .full-profile-button:hover {
+    background-color: #0056b3;
+  }
+  .book-appointment-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #e61c1c;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    text-decoration: none;
+    margin-top: 20px;
+  }
+
+  .book-appointment-button:hover {
+    background-color: darkred; /* Change color on hover */
+  }
   /* Custom CSS for hospital cards */
   .custom-hospital-card {
     background-color: #f8f9fa; /* Background color */
@@ -51,9 +111,24 @@
 .star-rating.filled {
     color: #f0d417; /* Filled star color */
 }
+  </style>
 
 
-</style>
+<div class="row mt-4">
+  <div class="col-md-12">
+    <form method="GET" action="">
+      <label for="state" style="color: #007BFF; font-weight: bold;">Filter by State:</label>
+      <select name="state" id="state" class="form-control" style="border-color: #007BFF;">
+        <option value="">All</option>
+        {% for state in states %}
+          <option value="{{ state.id }}">{{ state.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary" style="background-color: #007BFF; border-color: #007BFF;">Apply Filter</button>
+    </form>
+  </div>
+</div>
+
 
 <div class="row mt-4">
   {% for hospital in hospitals %}
@@ -62,21 +137,318 @@
       <img src="{{ hospital.get_url }}" alt="{{ hospital.name }}" class="card-img-top" style="flex: 1; height: 100%;">
       <div class="card-body" style="flex: 1;height: auto; overflow: hidden;text-align: center;">
         <h5 class="card-title">{{ hospital.name }}</h5>
-        <p class="card-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ hospital.description }}</p>
+        <div class="description-container">
+          <p class="card-text description-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ hospital.description }}</p>
+          <a href="#" class="read-more-link">Read more</a>
+        </div>
         <div class="star-rating">
           {% for i in list %}
-            {% if i <= hospital.average_doctor_rating %}
-              <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
-            {% else %} 
+          {% if i <= hospital.average_doctor_rating %}
+          <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
+          {% else %} 
               <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
             {% endif %}
           {% endfor %}
         </div>
-        <a href="{% url 'view_all_doctors' hospital.id %}" class="btn btn-primary" style="margin-top:20px">View All Doctors</a>
+        <a href="{% url 'view_all_doctors' hospital.id %}" class="btn btn-primary btn-block" style="margin-top:20px">View All Doctors</a>
+        <a href="#map" class="see-in-maps-button btn btn-success btn-block" data-location="{{ hospital.location }}"  style="margin-top:20px;">See in Maps</a>
       </div>
     </div>
 
   </div>
   {% endfor %}
 </div>
+<div class="pagination" style="margin:20px" >
+  <span class="step-links" style="margin-left: auto;margin-right: auto;">
+      {% if hospitals.has_previous %}
+          <a href="?page=1" class="btn btn-primary">&laquo; first</a>
+          <span style="margin: 0 10px;font-size: medium;">|</span>
+          <a href="?page={{ hospitals.previous_page_number }}" class="btn btn-primary">previous</a>
+      {% endif %}
+
+      <span class="current-page" style="margin: 0 10px;">
+          Page {{ hospitals.number }} of {{ hospitals.paginator.num_pages }}.
+      </span>
+
+      {% if hospitals.has_next %}
+          <a href="?page={{ hospitals.next_page_number }}" class="btn btn-primary">next</a>
+          <span style="margin: 0 10px;font-size: medium;">|</span>
+          <a href="?page={{ hospitals.paginator.num_pages }}" class="btn btn-primary">last &raquo;</a>
+      {% endif %}
+  </span>
+</div>
+
+<h1 style="text-align: center;text-shadow: grey;font-weight: 500;text-decoration: underline;">Use more facilities</h1>
+  <form method="post" id="location-form" style="text-align: center;" action="{% url 'home' %}">
+      {% csrf_token %}
+      <button type="button" id="get-location-button" style="border: none;padding: 1rem; ">See Nearest Hospitals</button>
+
+  </form>
+  <div class="row mt-4">
+    {% for hospital,distance in nearest_hospitals %}
+  <div class="col-md-4" style="height: 100%; display: flex; align-items: stretch; margin-top: 10px;">
+    <div class="card mb-4 shadow-sm custom-hospital-card">
+      <img src="{{ hospital.get_url }}" alt="{{ hospital.name }}" class="card-img-top" style="flex: 1; height: 100%;">
+      <div class="card-body" style="flex: 1;height: auto; overflow: hidden;text-align: center;">
+        <h5 class="card-title">{{ hospital.name }}</h5>
+        <div class="description-container">
+          <p class="card-text description-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ hospital.description }}</p>
+          <a href="#" class="read-more-link">Read more</a>
+        </div>        
+        <p class="card-text">Distance: {{ distance|floatformat:2 }} kilometers away</p>  <!-- Display the distance -->
+        <div class="star-rating">
+          {% for i in list %}
+          {% if i <= hospital.average_doctor_rating %}
+          <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
+          {% else %} 
+          <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
+          {% endif %}
+          {% endfor %}
+        </div>
+        <a href="{% url 'view_all_doctors' hospital.id %}" class="btn btn-primary" style="margin-top:20px">View All Doctors</a>
+      </div>
+    </div>
+    
+  </div>
+  {% endfor %}
+</div>
+<h2 style="margin: 20px;">Based on Your Recent Appointments</h2>
+<div class="doctor-profile-container">
+  {% for doctor in doctors %}
+    <div class="doctor-profile">
+      <div class="doctor-profile-header">
+        <h1>{{ doctor.get_name }}</h1>
+        <img src="{{ doctor.profile_pic.url }}" alt="{{ doctor.get_name }}" class="profile-pic">
+      </div>
+      <div class="doctor-details">
+        <p class="department"><b>Department-</b>{{ doctor.department }}</p>        
+        <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
+        <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>  
+      </div>
+    </div>
+  {% endfor %}
+</div>
+<h2 style="margin: 20px;">Our Top Doctors</h2>
+
+<div class="row mt-4" style="display: flex; justify-content: center;">
+    {% for doctor in top_doctors %}
+    <div class="doctor-profile">
+      <div class="doctor-profile-header">
+        <h1>{{ doctor.get_name }}</h1>
+        <img src="{{ doctor.profile_pic.url }}" alt="{{ doctor.get_name }}" class="profile-pic">
+      </div>
+      <div class="doctor-details">
+        <div class="star-rating" style="display: flex;justify-content: center;">
+          <h5 style="color: grey;margin-top: auto;margin-bottom: auto;">{{ doctor.avg_rating}}&nbsp;</h5>
+          <div  style="display: flex ;align-items: center;">
+
+            {% for i in list %}
+            {% if i <= doctor.avg_rating %}
+            <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
+            {% else %} 
+            <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
+            {% endif %}
+            {% endfor %}
+          </div>
+          <h5 style="color: grey;margin-top: auto;margin-bottom: auto;">&nbsp;({{ doctor.review_count }})</h5>
+        </div>
+        <p class="department"><b>Department-</b>{{ doctor.department }}</p>        
+        <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
+
+        <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>  
+      </div>
+    </div>
+    {% empty %}
+        <p>No top doctors found.</p>
+    {% endfor %}
+</div>
+<div id="map" style="height: 500px;"></div>
+
+<div id="route-details">
+  <!-- Route details will be displayed here -->
+</div>
+<script>
+
+document.addEventListener("DOMContentLoaded", function() {
+    var descriptionText = document.querySelectorAll(".description-text");
+    var readMoreLinks = document.querySelectorAll(".read-more-link");
+    readMoreLinks.forEach(function(link, index) {
+      link.addEventListener("click", function() {
+        event.preventDefault()
+          if (descriptionText[index].style.overflow === "hidden") {
+              descriptionText[index].style.overflow = "visible";
+              descriptionText[index].style.whiteSpace = "normal";
+              link.textContent = "Read less";
+          } else {
+              descriptionText[index].style.overflow = "hidden";
+              descriptionText[index].style.whiteSpace = "nowrap";
+              link.textContent = "Read more";
+          }
+      });
+    });
+});
+//Nearest js
+  var getLocationButton = document.getElementById("get-location-button");
+  var locationForm = document.getElementById("location-form");
+  var nearestHospitalsList = document.getElementById("nearest-hospitals-list");
+  getLocationButton.addEventListener("click",function(){
+    if("geolocation" in navigator){
+      navigator.geolocation.getCurrentPosition(function (position) {
+            var userLocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            };
+
+            locationForm.innerHTML += `
+                <input type="hidden" name="user_latitude" value="${userLocation.latitude}">
+                <input type="hidden" name="user_longitude" value="${userLocation.longitude}">
+            `;
+            locationForm.submit();
+      },function (error) {
+            console.error("Error getting user location:", error);
+          })
+        }else {
+          console.error("Geolocation is not available in this browser.");
+      }
+  });
+  
+  // Map js
+  var map = L.map('map').setView([51.505,-0.09], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+}).addTo(map);
+
+var sourceMarker,destMarker;
+var routeDetails=document.querySelector("#route-details")
+document.addEventListener("DOMContentLoaded", function() {
+  var seeInMapsButtons = document.querySelectorAll(".see-in-maps-button");
+  seeInMapsButtons.forEach(function(button) {
+    button.addEventListener("click", function(event) {
+      event.preventDefault();
+      var targetElement = document.querySelector(this.getAttribute("href"));
+      if (targetElement) {
+        targetElement.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+      // Get user's coordinates using geolocation
+      navigator.geolocation.getCurrentPosition(function(position) {
+        var userLatitude = position.coords.latitude;
+        var userLongitude = position.coords.longitude;
+        var userCoords = `${userLatitude},${userLongitude}`;
+        console.log("User Coordinates:", userCoords);
+        // Get the hospital's location from the data attribute
+        var hospitalLocation = button.getAttribute("data-location");
+        geocodeHospitalLocation(hospitalLocation, function(geocodedCoords) {
+          if (geocodedCoords) {
+            var sourceCoords = userCoords;
+            var destCoords = geocodedCoords;
+            var sourceLatLng = sourceCoords.split(",").map(function(coord) {
+              return parseFloat(coord.trim());
+            });
+            var destLatLng = destCoords.split(",").map(function(coord) {
+              return parseFloat(coord.trim());
+            });
+
+            if (sourceMarker) {
+              map.removeLayer(sourceMarker);
+            }
+            if (destMarker) {
+              map.removeLayer(destMarker);
+            }
+            sourceMarker = L.marker(sourceLatLng).addTo(map);
+            destMarker = L.marker(destLatLng).addTo(map);
+
+            var bounds = L.latLngBounds([sourceLatLng, destLatLng]);
+            map.fitBounds(bounds);
+
+            function displayPathOnMap(pathdistance,pathtime) {
+              // const polyine=L.Polyline.fromEncoded(c_coordinates)
+              // const coordinates=polyline.getLatLngs();
+              // L.polyline(coordinates, { color: 'blue' }).addTo(map);
+              // map.fitBounds(polyline.getBounds());
+              
+              var distance = pathdistance/1000
+              var totalTime =pathtime / 60;
+              var hours = Math.floor(totalTime / 60);
+              var minutes = totalTime % 60;
+              console.log(distance)
+              console.log(totalTime)
+              if (hours > 0) {
+                routeDetails.innerHTML = `<b>Distance: </b>${distance.toFixed(2)} km<br><b>Time:</b> ${hours} hours ${minutes.toFixed(2)} minutes`;
+              } else {
+                routeDetails.innerHTML = `<b>Distance: </b> ${distance.toFixed(2)} km<br><b>Time:</b>: ${minutes.toFixed(2)} minutes`;
+              }
+            }
+
+          
+            fetch(`https://graphhopper.com/api/1/route?key=1293bca2-6e5a-4045-88ac-87e1bf784a1a&point=${sourceCoords}&point=${destCoords}&vehicle=car&locale=en&type=json`)
+            .then(response => response.json())
+            .then(data => {
+              const pathdistance = data.paths[0].distance;
+              const pathtime= data.paths[0].time;
+              displayPathOnMap(pathdistance,pathtime);
+            })
+            .catch(error => {
+              console.error('Error:', error);
+            });
+            
+            // if (control) {
+            //   map.removeControl(control);
+            // }
+
+          //   var control = L.Routing.control({
+          //     waypoints: [
+          //       L.latLng(sourceLatLng[0], sourceLatLng[1]), // Source waypoint
+          //       L.latLng(destLatLng[0], destLatLng[1]) // Destination waypoint
+          //     ]
+          //   }).addTo(map);
+
+          //   control.on("routesfound", function(e) {
+          //     var routes = e.routes;
+          //     var route = routes[0]; // fastest route
+          //     var distance = route.summary.totalDistance / 1000; // in km
+          //     var totalTime = route.summary.totalTime / 60;
+          //     var hours = Math.floor(totalTime / 60);
+          //     var minutes = totalTime % 60;
+          //     if (hours > 0) {
+          //       routeDetails.innerHTML = `Distance: ${distance.toFixed(2)} km<br>Time: ${hours} hours ${minutes.toFixed(2)} minutes`;
+          //     } else {
+          //       routeDetails.innerHTML = `Distance: ${distance.toFixed(2)} km<br>Time: ${minutes.toFixed(2)} minutes`;
+          //     }
+          //   });
+          // } else {
+          //   console.error("Geocoding failed for hospital location");
+          }
+        });
+})
+
+
+
+
+    });
+  });
+});
+
+function geocodeHospitalLocation(location, callback) {
+  // Use a geocoding service like Nominatim
+  var geocoder = L.Control.Geocoder.nominatim({
+  geocodingQueryParams: {
+    user_agent: 'GetLoc' // Your user agent here
+  }
+  });
+  geocoder.geocode(location, function(results) {
+    if (results.length > 0) {
+      var firstResult = results[0];
+      var geocodedCoords = `${firstResult.center.lat}, ${firstResult.center.lng}`;
+      callback(geocodedCoords);
+    } else {
+      callback(null); // Geocoding failed
+    }
+  });
+}
+</script>
 {% endblock %}
+
+
