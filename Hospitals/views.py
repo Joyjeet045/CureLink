@@ -153,7 +153,7 @@ def get_available_timings(request):
 def dashboard(request):
   user=request.user
   today=date.today()
-  upcoming_appointments=Appointment.objects.filter(user=user,appointment_date__gte=today)
+  upcoming_appointments=Appointment.objects.filter(user=user,appointment_date__gte=today,time__gt=datetime.now().time())
   past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
   return render(request, 'Hospital/dashboard.html', {'upcoming_appointments': upcoming_appointments, 'past_appointments': past_appointments})
 

@@ -3,7 +3,8 @@ from django.core.wsgi import get_wsgi_application
 from django.conf import settings
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "doctors_app.settings")
 application = get_wsgi_application()
-# from Hospitals.models import Hospital,Doctor,State
+from datetime import datetime
+from Hospitals.models import Appointment
 # hospital_name = "Apollo Gleneagles Hospitals" 
 # location="Kolkata"
 # hospital=Hospital.objects.filter(location=location)
@@ -51,16 +52,31 @@ application = get_wsgi_application()
 
 # Appointment.objects.filter(appointment_date__lt=date.today()).update(status=False)
 
-from geopy.geocoders import Nominatim
+# from geopy.geocoders import Nominatim
 
-# Create a Nominatim geocoder instance
-geolocator = Nominatim(user_agent="GetLoc")
+# # Create a Nominatim geocoder instance
+# geolocator = Nominatim(user_agent="GetLoc")
 
-# Geocode an address to get its coordinates
-location = geolocator.geocode("Kangra")
+# # Geocode an address to get its coordinates
+# location = geolocator.geocode("Kangra")
 
-if location:
-    print("Latitude:", location.latitude)
-    print("Longitude:", location.longitude)
-else:
-    print("Location not found.")
+# if location:
+#     print("Latitude:", location.latitude)
+#     print("Longitude:", location.longitude)
+# else:
+#     print("Location not found.")
+
+
+print(datetime.now().time())
+appt_time=Appointment.objects.filter(hospital__name="Fortis Hospital & Kidney Institute",user__username="Joyjeet031",time__lt=datetime.now().time())
+for i in appt_time:
+  print(i.time)
+
+# current_time = datetime.now().time()
+# target_time = datetime.strptime("10:00:00", "%H:%M:%S").time()
+# if current_time < target_time:
+#     print("Current time is before the target time.")
+# elif current_time > target_time:
+#     print("Current time is after the target time.")
+# else:
+#     print("Current time is the same as the target time.")
