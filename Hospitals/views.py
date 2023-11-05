@@ -11,7 +11,11 @@ from .constants import doctor_departments
 from datetime import datetime,date
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
+from django.contrib.auth.decorators import login_required
 # Create your views here.
+
+def is_authenticated(user):
+  return user.is_authenticated
 def is_admin(user):
   return user.is_staff
 
@@ -22,14 +26,31 @@ def geocode_hospitals(h_location):
     return location.latitude, location.longitude
   return None,None
 
+@user_passes_test(is_authenticated,login_url="/login/")
 def home_page(request):
+  doctor_categories = [
+  "Cardiology",
+  "Orthopedics",
+  "Dermatology",
+  "Pediatrics",
+  "Obstetrics and Gynecology",
+  "Neurology",
+  "Ophthalmology",
+  "ENT (Ear, Nose, and Throat)"
+  ]
   states=State.objects.all()
+  doctors=Doctor.objects.all()
   state_filter=request.GET.get('state')
+  doctor_categories = [category for category in doctor_categories]
+  department_filter = request.GET.get('department')
   list=range(1,6)
   if state_filter and state_filter != "All":
     hospitals= Hospital.objects.filter(state=state_filter)
   else:
-    hospitals = Hospital.objects.all()
+    hospitals=Hospital.objects.all()
+  if department_filter and department_filter != "All":
+    doctors = doctors.filter(department=department_filter)
+
   paginator = Paginator(hospitals, 8)  # 8 items per page
   page = request.GET.get('page')
   hospitals = paginator.get_page(page)
@@ -54,7 +75,7 @@ def home_page(request):
   shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
 
   top_doctors=Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
-  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors})
+  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors,'doctor_categories': doctor_categories})
 @transaction.atomic
 # @user_passes_test(is_admin,login_url="{% url 'login' %}")
 def add_doctor(request):

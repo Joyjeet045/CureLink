@@ -124,11 +124,17 @@
           <option value="{{ state.id }}">{{ state.name }}</option>
         {% endfor %}
       </select>
+      <label for="department" style="color: #007BFF; font-weight: bold;">Filter by Department:</label>
+      <select name="department" id="department" class="form-control" style="border-color: #007BFF;">
+        <option value="">All</option>
+        {% for category in doctor_categories %}
+          <option value="{{ category }}">{{ category }}</option>
+        {% endfor %}
+      </select>
       <button type="submit" class="btn btn-primary" style="background-color: #007BFF; border-color: #007BFF;margin-top: 15px;">Apply Filter</button>
     </form>
   </div>
 </div>
-
 
 <div class="row mt-4">
   {% for hospital in hospitals %}
@@ -376,13 +382,11 @@ document.addEventListener("DOMContentLoaded", function() {
               console.log(distance)
               console.log(totalTime)
               if (hours > 0) {
-                routeDetails.innerHTML = `<b>Distance: </b>${distance.toFixed(2)} km<br><b>Time:</b> ${hours} hours ${minutes.toFixed(2)} minutes`;
+                routeDetails.innerHTML = `<b style="color: blue;">Distance:</b> ${distance.toFixed(2)} km<br><b style="color: green;">Time:</b> ${hours} hours ${minutes.toFixed(2)} minutes`;
               } else {
-                routeDetails.innerHTML = `<b>Distance: </b> ${distance.toFixed(2)} km<br><b>Time:</b>: ${minutes.toFixed(2)} minutes`;
+                routeDetails.innerHTML = `<b style="color: blue;">Distance:</b> ${distance.toFixed(2)} km<br><b style="color: green;">Time:</b>: ${minutes.toFixed(2)} minutes`;
               }
             }
-
-          
             fetch(`https://graphhopper.com/api/1/route?key=1293bca2-6e5a-4045-88ac-87e1bf784a1a&point=${sourceCoords}&point=${destCoords}&vehicle=car&locale=en&type=json`)
             .then(response => response.json())
             .then(data => {
