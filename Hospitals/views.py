@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from .models import Doctor,Hospital,State,Timing,Review,Appointment
 from .constants import doctor_departments
-from datetime import datetime,date
+from datetime import datetime,date,timedelta
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 from django.contrib.auth.decorators import login_required
@@ -60,7 +60,6 @@ def home_page(request):
   past_appointments = Appointment.objects.filter(user=request.user)
   departments = set(appointment.doctor.department for appointment in past_appointments)
   shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
-
   top_doctors=Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
   return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors})
 @transaction.atomic
@@ -129,12 +128,23 @@ def add_review(request,doctor_id):
 
   
 
+def update_doctor_status(doctor):
+  today=date.today()+timedelta(hours=24)
+  appointment_count =Appointment.objects.filter(
+    doctor=doctor,
+    appointment_date=today,
+  ).count()
+  if appointment_count >= 2:
+        doctor.status = False  
+        doctor.save()
+
 def doctor_profile(request,doctor_id):
   doctor=get_object_or_404(Doctor,id=doctor_id)
   reviews=Review.objects.filter(doctor=doctor).order_by('-rating')
   list=range(1,6)
   top_review_count=len(reviews)//2+1
   top_reviews=reviews[:top_review_count]
+  update_doctor_status(doctor)
   if request.method == 'POST':
         review_id_to_delete = request.POST.get('review_id_to_delete')
         if review_id_to_delete:

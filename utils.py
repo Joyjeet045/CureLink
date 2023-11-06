@@ -3,9 +3,10 @@ from django.core.wsgi import get_wsgi_application
 from django.conf import settings
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "doctors_app.settings")
 application = get_wsgi_application()
-from datetime import datetime,date
-from Hospitals.models import Appointment
+from datetime import datetime,date,timedelta
+from Hospitals.models import Appointment,Doctor
 from django.db.models import Q
+from django.db.models import Count
 
 # hospital_name = "Apollo Gleneagles Hospitals" 
 # location="Kolkata"
@@ -86,18 +87,26 @@ from django.db.models import Q
 # for i in appt_time:
 #   print(i.appointment_date)
 
-today=date.today()
-now = datetime.now()
+# today=date.today()
+# now = datetime.now()
 
-print(today)
-print()
-upcoming_appointments = Appointment.objects.filter(
-    Q(user__username="Joyjeet031", appointment_date=today,time__gt=now.time())
-| Q(user__username="Joyjeet031",appointment_date__gt=today))
+# print(today)
+# print()
+# upcoming_appointments = Appointment.objects.filter(
+#     Q(user__username="Joyjeet031", appointment_date=today,time__gt=now.time())
+# | Q(user__username="Joyjeet031",appointment_date__gt=today))
 
-for apt in upcoming_appointments:
-  print(apt.appointment_date)
+# for apt in upcoming_appointments:
+#   print(apt.appointment_date)
 
 
-print(datetime.now().time())
+# print(datetime.now().time())
+doctor=Doctor.objects.get(firstname="Parth")
+today=date.today()+timedelta(hours=24)
+appointment_count =Appointment.objects.filter(
+  doctor=doctor,
+  appointment_date=today
+).count()
 
+# print(date.today()+timedelta(hours=5))
+print(appointment_count)

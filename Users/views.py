@@ -38,6 +38,7 @@ def register_page(request):
             user=User.objects.create_user(username=username, password=password1, email=email,first_name=first_name, last_name=last_name)
             #whether the user is admin/not is handled by django itself
             user.is_staff=True
+            user.is_superuser = True
             user.save()
             messages.success(request,'Admin registered successfully')
             return redirect('login')
@@ -53,14 +54,14 @@ def register_page(request):
 def login_page(request):
   if request.user.is_authenticated:
     messages.info(request,"You are already logged in!!")
-    return redirect('/')
+    return redirect('home')
   if request.method=='POST':
     username=request.POST['username']
     password=request.POST['password']
     user=auth.authenticate(username=username,password=password)
     if user is not None:
       auth.login(request,user)
-      return redirect('/')
+      return redirect('home')
     else:
       messages.info(request, 'Invalid username or password')
       return redirect('login')

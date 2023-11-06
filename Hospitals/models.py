@@ -87,7 +87,6 @@ class Timing(models.Model):
     if self.doctor and self.hospital:
         self.doctor.hospitals.add(self.hospital)
 
-
 def validate_rating(value):
   if value>5 or value<0:
     raise ValidationError('Invalid Rating')
