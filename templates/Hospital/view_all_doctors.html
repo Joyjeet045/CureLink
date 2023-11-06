@@ -71,6 +71,7 @@
   .book-appointment-button:hover {
       background-color: darkred; /* Change color on hover */
   }
+
 </style>
 
 <div class="doctor-profile-container">
@@ -87,11 +88,10 @@
           {% for timing in timings %}
             {% if timing.doctor == doctor %}
               <li style="list-style: none;">{{ timing.day_of_week }}: {{ timing.start_time|time:"H:i" }} - {{ timing.end_time|time:"H:i" }}</li>
-            {% endif %}
-          {% empty %}
-            <li style="list-style: none;">None</li>
+              {% endif %}
           {% endfor %}
-        </ul>        
+         
+         </ul>    
         <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
         <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>
         <a href="{% url 'doctor_appointment' doctor_id=doctor.id hospital_id=hospital.id %}" class="book-appointment-button">Book An Appointment</a>

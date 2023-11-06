@@ -69,10 +69,33 @@
   }
 
   .book-appointment-button:hover {
-      background-color: darkred; /* Change color on hover */
+      background-color: darkred; 
   }
+  .no-doctors-message {
+    font-size: 18px;
+    color: #FF0000; 
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+    width: 100vw;
+  }
+
 </style>
 <u><h1 class="text-center mt-6 mb-6">Doctors Connected with Us</h1></u>
+<div class="row mt-4">
+  <div class="col-md-12">
+    <form method="GET" action="">
+      <label for="department" style="color: #007BFF; font-weight: bold;">See department specialists:</label>
+        <select name="department" id="department" class="form-control" style="border-color: #007BFF;">
+          <option value="">All</option>
+          {% for category in doctor_categories %}
+            <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary" style="background-color: #007BFF; border-color: #007BFF;margin-top: 15px;">Apply Filter</button>
+    </form>
+  </div>
+</div>
 <div class="doctor-profile-container">
   {% for doctor in doctors %}
     <div class="doctor-profile">
@@ -82,20 +105,13 @@
       </div>
       <div class="doctor-details">
         <p class="department"><b>Department-</b>{{ doctor.department }}</p>
-        <p><u><b>Timings:</b></u></p>
-        <ul>
-          {% for timing in timings %}
-            {% if timing.doctor == doctor %}
-              <li style="list-style: none;">{{ timing.day_of_week }}: {{ timing.start_time|time:"H:i" }} - {{ timing.end_time|time:"H:i" }}</li>
-            {% endif %}
-          {% empty %}
-            <li style="list-style: none;">None</li>
-          {% endfor %}
-        </ul>        
         <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
-        
+        <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>  
       </div>
     </div>
   {% endfor %}
+  {% if doctors|length == 0 %}
+    <p class="no-doctors-message">We currently don't have doctors of this department.</p>
+  {% endif %}
 </div>
 {% endblock %}

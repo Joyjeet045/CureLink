@@ -28,7 +28,13 @@
   .status-false {
     color: red;
   }
-
+  .no-doctors-message {
+    font-size: 18px;
+    color: #FF0000; 
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+  }
   /* Add any additional CSS styles as needed */
 </style>
 
@@ -51,7 +57,9 @@
                         <a href="{% url 'reschedule_appointment' appointment.id %}">Reschedule</a>
                     </div>
                 {% endfor %}
-
+                {% if upcoming_appointments|length == 0 %}
+                <p class="no-doctors-message">You don't have any upcoming appointments</p>
+                {% endif %}
                 <!-- Past Appointments -->
                 <h3 class="mb-4 text-center">Past Appointments</h3>
                 {% for appointment in past_appointments %}
@@ -63,6 +71,9 @@
                         <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
                     </div>
                 {% endfor %}
+                {% if past_appointments|length == 0 %}
+                <p class="no-doctors-message">You haven't consulted our doctors before</p>
+                {% endif %}
             </div>
         </div>
         <div class="text-center">

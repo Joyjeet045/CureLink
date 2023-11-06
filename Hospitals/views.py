@@ -12,6 +12,8 @@ from datetime import datetime,date
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
+
 # Create your views here.
 
 def is_authenticated(user):
@@ -28,29 +30,14 @@ def geocode_hospitals(h_location):
 
 @user_passes_test(is_authenticated,login_url="/login/")
 def home_page(request):
-  doctor_categories = [
-  "Cardiology",
-  "Orthopedics",
-  "Dermatology",
-  "Pediatrics",
-  "Obstetrics and Gynecology",
-  "Neurology",
-  "Ophthalmology",
-  "ENT (Ear, Nose, and Throat)"
-  ]
+  
   states=State.objects.all()
-  doctors=Doctor.objects.all()
   state_filter=request.GET.get('state')
-  doctor_categories = [category for category in doctor_categories]
-  department_filter = request.GET.get('department')
   list=range(1,6)
   if state_filter and state_filter != "All":
     hospitals= Hospital.objects.filter(state=state_filter)
   else:
     hospitals=Hospital.objects.all()
-  if department_filter and department_filter != "All":
-    doctors = doctors.filter(department=department_filter)
-
   paginator = Paginator(hospitals, 8)  # 8 items per page
   page = request.GET.get('page')
   hospitals = paginator.get_page(page)
@@ -75,9 +62,9 @@ def home_page(request):
   shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
 
   top_doctors=Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
-  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors,'doctor_categories': doctor_categories})
+  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors})
 @transaction.atomic
-# @user_passes_test(is_admin,login_url="{% url 'login' %}")
+@user_passes_test(is_admin,login_url="login")
 def add_doctor(request):
   if request.method=='POST':
     first_name = request.POST['first_name']
@@ -102,14 +89,29 @@ def add_doctor(request):
   return render(request,'Hospital/create_doctor.html',{'hospital_ch':hospitals_list,'state_ch':state,'depts':doctor_departments})
 
 def view_doctors(request):
+  doctor_categories = [
+  "Cardiology",
+  "Orthopedics",
+  "Dermatology",
+  "Pediatrics",
+  "Obstetrics and Gynecology",
+  "Neurology",
+  "Ophthalmology",
+  "ENT (Ear, Nose, and Throat)"
+  ]
   doctors=Doctor.objects.all()
-  return render(request,'Hospital/view_doctors.html',{'doctors':doctors})
+  doctor_categories = [category for category in doctor_categories]
+  department_filter = request.GET.get('department')
+  if department_filter and department_filter != "All":
+    doctors = doctors.filter(department=department_filter)
+  return render(request,'Hospital/view_doctors.html',{'doctors':doctors,'doctor_categories':doctor_categories})
 
 def view_all_doctors(request,hospital_id):
+  noMatchFound=True
   hospital=get_object_or_404(Hospital,pk=hospital_id)
   doctors=hospital.doctors.all()
   timings=Timing.objects.filter(doctor__in=doctors,hospital=hospital)
-  return render(request,"Hospital/view_all_doctors.html", {'hospital': hospital, 'doctors': doctors,'timings':timings,'hospital_id':hospital_id})
+  return render(request,"Hospital/view_all_doctors.html", {'hospital': hospital, 'doctors': doctors,'timings':timings,'hospital_id':hospital_id,'noMatchFound': noMatchFound})
 
 def add_review(request,doctor_id):
   doctor=get_object_or_404(Doctor,id=doctor_id)
@@ -125,12 +127,20 @@ def add_review(request,doctor_id):
       return redirect('doctor_profile',doctor.id)
   return render(request,'Hospital/add_review.html',{'doctor':doctor})
 
+  
+
 def doctor_profile(request,doctor_id):
   doctor=get_object_or_404(Doctor,id=doctor_id)
   reviews=Review.objects.filter(doctor=doctor).order_by('-rating')
   list=range(1,6)
   top_review_count=len(reviews)//2+1
   top_reviews=reviews[:top_review_count]
+  if request.method == 'POST':
+        review_id_to_delete = request.POST.get('review_id_to_delete')
+        if review_id_to_delete:
+            if Review.objects.filter(pk=review_id_to_delete).exists():
+                review = get_object_or_404(Review, pk=review_id_to_delete)
+                review.delete()
   return render(request,'Hospital/view_profile.html',{'doctor':doctor,'top_reviews':top_reviews,'list':list})
   
 def doctor_appointments(request,hospital_id,doctor_id):
@@ -174,7 +184,12 @@ def get_available_timings(request):
 def dashboard(request):
   user=request.user
   today=date.today()
-  upcoming_appointments=Appointment.objects.filter(user=user,appointment_date__gte=today,time__gt=datetime.now().time())
+  now = datetime.now()
+
+  upcoming_appointments = Appointment.objects.filter(
+    Q(user=user, appointment_date=today,time__gt=now.time())
+| Q(user=user,appointment_date__gt=today))
+
   past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
   return render(request, 'Hospital/dashboard.html', {'upcoming_appointments': upcoming_appointments, 'past_appointments': past_appointments})
 

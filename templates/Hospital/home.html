@@ -111,6 +111,14 @@
 .star-rating.filled {
     color: #f0d417; /* Filled star color */
 }
+.no-doctors-message {
+    font-size: 18px;
+    color: #FF0000; 
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+    width: 100vw;
+  }
   </style>
 
 
@@ -124,14 +132,6 @@
           <option value="{{ state.id }}">{{ state.name }}</option>
         {% endfor %}
       </select>
-      <label for="department" style="color: #007BFF; font-weight: bold;">Filter by Department:</label>
-      <select name="department" id="department" class="form-control" style="border-color: #007BFF;">
-        <option value="">All</option>
-        {% for category in doctor_categories %}
-          <option value="{{ category }}">{{ category }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-primary" style="background-color: #007BFF; border-color: #007BFF;margin-top: 15px;">Apply Filter</button>
     </form>
   </div>
 </div>
@@ -184,6 +184,7 @@
   </span>
 </div>
 
+  
 <h1 style="text-align: center;text-shadow: grey;font-weight: 500;text-decoration: underline;">Use more facilities</h1>
   <form method="post" id="location-form" style="text-align: center;" action="{% url 'home' %}">
       {% csrf_token %}
@@ -219,6 +220,7 @@
   {% endfor %}
 </div>
 <h2 style="margin: 20px;">Based on Your Recent Appointments</h2>
+
 <div class="doctor-profile-container">
   {% for doctor in doctors %}
     <div class="doctor-profile">
@@ -233,6 +235,9 @@
       </div>
     </div>
   {% endfor %}
+  {% if doctors|length == 0 %}
+  <p class="no-doctors-message">You haven't appointed our doctors before.</p>
+  {% endif %}
 </div>
 <h2 style="margin: 20px;">Our Top Doctors</h2>
 

@@ -19,10 +19,10 @@ def register_page(request):
       #if the username matches reject them
       if User.objects.filter(username=username):
         messages.info(request,'Username already exists')
-        return  redirect('/register')
+        return  redirect('register')
       elif User.objects.filter(email=email):
         messages.info(request,"You can\'t have account with same mail")
-        return redirect('/register')
+        return redirect('register')
       else:
         #check if user is admin
         admin_key=request.POST['admin_key']
@@ -31,7 +31,7 @@ def register_page(request):
           user=User.objects.create_user(username=username, password=password1, email=email,first_name=first_name, last_name=last_name)
           user.save()
           messages.success(request,"Successfully logged in!!")
-          return redirect('/login')
+          return redirect('login')
         else:
           #user is an admin
           if(AdminKey.objects.filter(admin_key=admin_key).exists()):
@@ -40,10 +40,10 @@ def register_page(request):
             user.is_staff=True
             user.save()
             messages.success(request,'Admin registered successfully')
-            return redirect('/login')
+            return redirect('login')
           else:
             messages.info(request,'Invalid access key')
-            return redirect('/register')
+            return redirect('register')
     else:
         messages.info(request,"Password's don\'t match")
         return redirect("/register")
@@ -63,7 +63,7 @@ def login_page(request):
       return redirect('/')
     else:
       messages.info(request, 'Invalid username or password')
-      return redirect('/login')
+      return redirect('login')
   #probably a GET request
   else:
     return  render(request,'Users/login.html')

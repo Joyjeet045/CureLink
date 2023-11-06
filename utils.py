@@ -3,8 +3,10 @@ from django.core.wsgi import get_wsgi_application
 from django.conf import settings
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "doctors_app.settings")
 application = get_wsgi_application()
-from datetime import datetime
+from datetime import datetime,date
 from Hospitals.models import Appointment
+from django.db.models import Q
+
 # hospital_name = "Apollo Gleneagles Hospitals" 
 # location="Kolkata"
 # hospital=Hospital.objects.filter(location=location)
@@ -67,10 +69,10 @@ from Hospitals.models import Appointment
 #     print("Location not found.")
 
 
-print(datetime.now().time())
-appt_time=Appointment.objects.filter(hospital__name="Fortis Hospital & Kidney Institute",user__username="Joyjeet031",time__lt=datetime.now().time())
-for i in appt_time:
-  print(i.time)
+# print(datetime.now().time())
+# appt_time=Appointment.objects.filter(hospital__name="Fortis Hospital & Kidney Institute",user__username="Joyjeet031",time__lt=datetime.now().time())
+# for i in appt_time:
+#   print(i.time)
 
 # current_time = datetime.now().time()
 # target_time = datetime.strptime("10:00:00", "%H:%M:%S").time()
@@ -80,3 +82,22 @@ for i in appt_time:
 #     print("Current time is after the target time.")
 # else:
 #     print("Current time is the same as the target time.")
+# appt_time=Appointment.objects.filter(user__username="Joyjeet031",time__lt=datetime.now().time())
+# for i in appt_time:
+#   print(i.appointment_date)
+
+today=date.today()
+now = datetime.now()
+
+print(today)
+print()
+upcoming_appointments = Appointment.objects.filter(
+    Q(user__username="Joyjeet031", appointment_date=today,time__gt=now.time())
+| Q(user__username="Joyjeet031",appointment_date__gt=today))
+
+for apt in upcoming_appointments:
+  print(apt.appointment_date)
+
+
+print(datetime.now().time())
+

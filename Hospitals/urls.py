@@ -1,7 +1,6 @@
-
+from django.contrib import admin
 from django.urls import path
 from . import views
-
 urlpatterns=[
   path('',views.home_page,name='home'),
   path('add-doctors/',views.add_doctor,name='doctors'),
