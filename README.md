@@ -7,4 +7,4 @@ Further, keeping the user experience in mind, we have implemented a real-time us
 with email reminders exactly 5 hours prior to their appointments. Doctors also have the ability to provide users with e-prescriptions directly within the platform, ensuring accuracy and eliminating the use of 
 paper-based prescriptions.
 
-*Exposure*: Python,Django,HTML,CSS,JavaScript,Celery
+Exposure: Python,Django,HTML,CSS,JavaScript.
