@@ -3,7 +3,7 @@ from django.db.models import Avg
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from datetime import date
-# Create your models here.
+
 doctor_departments = [
   "Cardiology",
   "Orthopedics",
@@ -22,7 +22,6 @@ class State(models.Model):
  
   
 class Hospital(models.Model):
-  #each doctor can also be associated with multiple hospitals
   name=models.CharField(max_length=200)
   state = models.ForeignKey(State, on_delete=models.CASCADE)
   location=models.CharField(max_length=80,default="Kolkata")
@@ -44,10 +43,6 @@ class Hospital(models.Model):
     return 3
   
 class Doctor(models.Model):
-  # null=True is for allowing null in db and blank for form
-  # mobile is passed as string
-  #status is for whether doctor is available that day or not
-  #we are not adding patient no here as it dynamic and will access through foreign key
   firstname=models.CharField(max_length=30)
   lastname=models.CharField(max_length=30)
   profile_pic=models.ImageField(upload_to='profile_pic/DoctorProfilePic/',null=True,blank=True)
@@ -83,7 +78,6 @@ class Timing(models.Model):
     return f"{self.doctor.get_name}'s Timing at {self.hospital.name} on {self.day_of_week} ({self.start_time} - {self.end_time})"
   def save(self, *args, **kwargs):
     super().save(*args, **kwargs)
-    # Add the hospital to the doctor's list of hospitals
     if self.doctor and self.hospital:
         self.doctor.hospitals.add(self.hospital)
 
@@ -110,13 +104,12 @@ class Appointment(models.Model):
   time = models.TimeField()
   notes=models.TextField(blank=True)
   status=models.BooleanField(default=True)
-  # Add more fields as needed, such as appointment status, notes, etc.
 
   def __str__(self):
     return f"Appointment with Dr. {self.doctor.get_name} at {self.hospital.name} on {self.appointment_date}"
   def save(self, *args, **kwargs):
     if self.appointment_date<date.today():
-      self.status = False  # Set status to False if the date is in the past
+      self.status = False  
     super(Appointment, self).save(*args, **kwargs)
   class Meta:
     ordering = ['appointment_date', 'time']

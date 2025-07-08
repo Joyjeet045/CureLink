@@ -2,9 +2,9 @@ from django.core.mail import send_mail
 from django.conf import settings
 from datetime import datetime,timedelta
 from .models import Appointment
+
 def send_appointment_reminders():
     threshold_time = timedelta(hours=10.5)
-    #I am 5.5 hours ahead of server time(so for 5 hours we set +5.5 hrs)
     now = datetime.now()
     upcoming_appointments = Appointment.objects.filter(
         appointment_date=now.date(),
