@@ -114,3 +114,23 @@ class Appointment(models.Model):
   class Meta:
     ordering = ['appointment_date', 'time']
 
+class Prescription(models.Model):
+    appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name='prescription')
+    diagnosis = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self):
+        return f'Prescription for {self.appointment}'
+
+class MedicineEntry(models.Model):
+    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE, related_name='medicines')
+    medicine = models.CharField(max_length=100)
+    dosage = models.PositiveIntegerField()
+    dosage_unit = models.CharField(max_length=20, default='Tablet(s)')
+    num_days = models.PositiveIntegerField()
+    num_days_unit = models.CharField(max_length=20, default='Day')
+    frequency = models.CharField(max_length=50)
+    food_relation = models.CharField(max_length=50, blank=True)
+    def __str__(self):
+        return f'{self.medicine} ({self.dosage} {self.dosage_unit})'
+

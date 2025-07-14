@@ -35,6 +35,51 @@
     margin-top: 20px;
     font-weight: bold;
   }
+  .modal {
+  z-index: 1050 !important;
+  }
+
+  .modal-backdrop {
+    z-index: 1040 !important;
+  }
+
+  /* Fix modal content scrolling */
+  .modal-dialog {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Ensure form elements are properly styled and not disabled */
+  .modal .form-control,
+  .modal .form-select {
+    background-color: #fff !important;
+    border: 1px solid #ced4da !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  /* Fix button states */
+  .modal .btn {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure modal body content is scrollable */
+  .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  /* Fix prescription form specific styling */
+  #prescription-modal-body {
+    min-height: 200px;
+  }
+
+  /* Loading state for buttons */
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
   /* Add any additional CSS styles as needed */
 </style>
 
@@ -46,36 +91,71 @@
 
                 <!-- Upcoming Appointments -->
                 <h3 class="mb-4 text-center">Upcoming Appointments</h3>
-                {% for appointment in upcoming_appointments %}
+                {% if is_doctor %}
+                  {% for appointment in upcoming_appointments %}
                     <div class="appointment">
-                        <p>Date: {{ appointment.appointment_date }}</p>
-                        <p>Time: {{ appointment.time }}</p>
-                        <p>Doctor: {{ appointment.doctor.get_name }}</p>
-                        <p>Hospital: {{ appointment.hospital.name }}</p>
-                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>
+                      <p>Date: {{ appointment.appointment_date }}</p>
+                      <p>Time: {{ appointment.time }}</p>
+                      <p>Patient: {{ appointment.user.get_full_name|default:appointment.user.username }}</p>
+                      <p>Hospital: {{ appointment.hospital.name }}</p>
+                      <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>
                         <div class="d-flex align-items-center" style="gap: 10px;">
-                            <a href="{% url 'cancel_appointment' appointment.id %}" class="btn btn-danger btn-sm" style="color: #fff;">Cancel</a>
-                            <a href="{% url 'reschedule_appointment' appointment.id %}" class="btn btn-warning btn-sm" style="color: #fff;">Reschedule</a>
-                            <button class="btn btn-success btn-sm see-in-maps-btn ms-auto" data-hospital-location="{{ appointment.hospital.location }}" data-hospital-name="{{ appointment.hospital.name }}">See in Maps</button>
+                          <a class="btn btn-info btn-sm ms-auto" href="/appointment/{{ appointment.id }}/prescription/">
+                            {% if appointment.prescription %}Edit Prescription{% else %}Add Prescription{% endif %}
+                          </a>
                         </div>
+                      </div>
+                    {% endfor %}
+                  {% if upcoming_appointments|length == 0 %}
+                    <p class="no-doctors-message">You don't have any upcoming appointments with patients.</p>
+                  {% endif %}
+                {% else %}
+                  {% for appointment in upcoming_appointments %}
+                    <div class="appointment">
+                      <p>Date: {{ appointment.appointment_date }}</p>
+                      <p>Time: {{ appointment.time }}</p>
+                      <p>Doctor: {{ appointment.doctor.get_name }}</p>
+                      <p>Hospital: {{ appointment.hospital.name }}</p>
+                      <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>
+                      <div class="d-flex align-items-center" style="gap: 10px;">
+                        <a href="{% url 'cancel_appointment' appointment.id %}" class="btn btn-danger btn-sm" style="color: #fff;">Cancel</a>
+                        <a href="{% url 'reschedule_appointment' appointment.id %}" class="btn btn-warning btn-sm" style="color: #fff;">Reschedule</a>
+                        <button class="btn btn-success btn-sm see-in-maps-btn ms-auto" data-hospital-location="{{ appointment.hospital.location }}" data-hospital-name="{{ appointment.hospital.name }}">See in Maps</button>
+                      </div>
                     </div>
-                {% endfor %}
-                {% if upcoming_appointments|length == 0 %}
-                <p class="no-doctors-message">You don't have any upcoming appointments</p>
+                  {% endfor %}
+                  {% if upcoming_appointments|length == 0 %}
+                    <p class="no-doctors-message">You don't have any upcoming appointments</p>
+                  {% endif %}
                 {% endif %}
                 <!-- Past Appointments -->
                 <h3 class="mb-4 text-center">Past Appointments</h3>
-                {% for appointment in past_appointments %}
+                {% if is_doctor %}
+                  {% for appointment in past_appointments %}
                     <div class="appointment">
-                        <p>Date: {{ appointment.appointment_date }}</p>
-                        <p>Time: {{ appointment.time }}</p>
-                        <p>Doctor: {{ appointment.doctor.get_name }}</p>
-                        <p>Hospital: {{ appointment.hospital.name }}</p>
-                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
+                      <p>Date: {{ appointment.appointment_date }}</p>
+                      <p>Time: {{ appointment.time }}</p>
+                      <p>Patient: {{ appointment.user.get_full_name|default:appointment.user.username }}</p>
+                      <p>Hospital: {{ appointment.hospital.name }}</p>
+                      <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
                     </div>
-                {% endfor %}
-                {% if past_appointments|length == 0 %}
-                <p class="no-doctors-message">You haven't consulted our doctors before</p>
+                  {% endfor %}
+                  {% if past_appointments|length == 0 %}
+                    <p class="no-doctors-message">You haven't had any past appointments with patients.</p>
+                  {% endif %}
+                {% else %}
+                  {% for appointment in past_appointments %}
+                    <div class="appointment">
+                      <p>Date: {{ appointment.appointment_date }}</p>
+                      <p>Time: {{ appointment.time }}</p>
+                      <p>Doctor: {{ appointment.doctor.get_name }}</p>
+                      <p>Hospital: {{ appointment.hospital.name }}</p>
+                      <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
+                    </div>
+                  {% endfor %}
+                  {% if past_appointments|length == 0 %}
+                    <p class="no-doctors-message">You haven't consulted our doctors before</p>
+                  {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -195,4 +275,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
 {% endblock %}

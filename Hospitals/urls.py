@@ -13,4 +13,5 @@ urlpatterns=[
   path('dashboard/me/', views.dashboard, name='user_dashboard'),
   path('cancel-appointment/<int:appointment_id>/', views.cancel_appointment, name='cancel_appointment'),
   path('reschedule-appointment/<int:appointment_id>/', views.reschedule_appointment, name='reschedule_appointment'),
+  path('appointment/<int:appointment_id>/prescription/', views.prescription_modal, name='prescription_modal'),
 ]

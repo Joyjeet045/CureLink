@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core import serializers
 from django.db import transaction
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
@@ -12,6 +12,7 @@ from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
+from django.views.decorators.csrf import csrf_exempt
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -194,16 +195,34 @@ def get_available_timings(request):
     return JsonResponse(list(available_timings), safe=False)
   
 def dashboard(request):
-  user=request.user
-  today=date.today()
+  user = request.user
+  today = date.today()
   now = datetime.now()
-
-  upcoming_appointments = Appointment.objects.filter(
-    Q(user=user, appointment_date=today,time__gt=now.time())
-| Q(user=user,appointment_date__gt=today))
-
-  past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
-  return render(request, 'Hospital/dashboard.html', {'upcoming_appointments': upcoming_appointments, 'past_appointments': past_appointments})
+  from .models import Doctor
+  is_doctor = Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).exists()
+  if is_doctor:
+    doctor = Doctor.objects.get(firstname=user.first_name, lastname=user.last_name)
+    upcoming_appointments = Appointment.objects.filter(
+      Q(doctor=doctor, appointment_date=today, time__gt=now.time()) |
+      Q(doctor=doctor, appointment_date__gt=today)
+    )
+    past_appointments = Appointment.objects.filter(doctor=doctor, appointment_date__lt=today)
+    return render(request, 'Hospital/dashboard.html', {
+      'upcoming_appointments': upcoming_appointments,
+      'past_appointments': past_appointments,
+      'is_doctor': True
+    })
+  else:
+    upcoming_appointments = Appointment.objects.filter(
+      Q(user=user, appointment_date=today, time__gt=now.time()) |
+      Q(user=user, appointment_date__gt=today)
+    )
+    past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
+    return render(request, 'Hospital/dashboard.html', {
+      'upcoming_appointments': upcoming_appointments,
+      'past_appointments': past_appointments,
+      'is_doctor': False
+    })
 
 def cancel_appointment(request,appointment_id):
   try:
@@ -234,5 +253,43 @@ def reschedule_appointment(request, appointment_id):
     except Appointment.DoesNotExist:
         messages.error(request, 'Appointment not found.')
         return redirect('user_dashboard')
+
+@csrf_exempt
+def prescription_modal(request, appointment_id):
+    from .models import Appointment, Prescription, MedicineEntry
+    appointment = Appointment.objects.get(id=appointment_id)
+    prescription = getattr(appointment, 'prescription', None)
+    if request.method == 'POST':
+        data = request.POST
+        diagnosis = data.get('diagnosis', '')
+        medicines = data.getlist('medicine')
+        dosages = data.getlist('dosage')
+        dosage_units = data.getlist('dosage_unit')
+        num_days_list = data.getlist('num_days')
+        num_days_units = data.getlist('num_days_unit')
+        frequencies = data.getlist('frequency')
+        food_relations = data.getlist('food_relation')
+        if prescription:
+            prescription.diagnosis = diagnosis
+            prescription.save()
+            prescription.medicines.all().delete()
+        else:
+            prescription = Prescription.objects.create(
+                appointment=appointment,
+                diagnosis=diagnosis
+            )
+        for i in range(len(medicines)):
+            MedicineEntry.objects.create(
+                prescription=prescription,
+                medicine=medicines[i],
+                dosage=dosages[i],
+                dosage_unit=dosage_units[i],
+                num_days=num_days_list[i],
+                num_days_unit=num_days_units[i],
+                frequency=frequencies[i],
+                food_relation=food_relations[i]
+            )
+        return JsonResponse({'success': True, 'message': 'Prescription sent to patient.'})
+    return render(request, 'Hospital/prescription_form.html', {'appointment': appointment, 'prescription': prescription})
 
 
