@@ -52,9 +52,12 @@
                         <p>Time: {{ appointment.time }}</p>
                         <p>Doctor: {{ appointment.doctor.get_name }}</p>
                         <p>Hospital: {{ appointment.hospital.name }}</p>
-                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>                                             
-                        <a href="{% url 'cancel_appointment' appointment.id %}">Cancel</a>
-                        <a href="{% url 'reschedule_appointment' appointment.id %}">Reschedule</a>
+                        <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>
+                        <div class="d-flex align-items-center" style="gap: 10px;">
+                            <a href="{% url 'cancel_appointment' appointment.id %}" class="btn btn-danger btn-sm" style="color: #fff;">Cancel</a>
+                            <a href="{% url 'reschedule_appointment' appointment.id %}" class="btn btn-warning btn-sm" style="color: #fff;">Reschedule</a>
+                            <button class="btn btn-success btn-sm see-in-maps-btn ms-auto" data-hospital-location="{{ appointment.hospital.location }}" data-hospital-name="{{ appointment.hospital.name }}">See in Maps</button>
+                        </div>
                     </div>
                 {% endfor %}
                 {% if upcoming_appointments|length == 0 %}
@@ -87,4 +90,109 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mapModalLabel">Route to Hospital</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="route-map" style="height: 400px; width: 100%;"></div>
+        <div id="route-details" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var mapModalEl = document.getElementById('mapModal');
+  var mapModal = new bootstrap.Modal(mapModalEl);
+  var map, routingControl;
+  var pendingRoute = null;
+
+  document.querySelectorAll('.see-in-maps-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          var userLat = position.coords.latitude;
+          var userLng = position.coords.longitude;
+          var hospitalLocation = btn.getAttribute('data-hospital-location');
+          var hospitalName = btn.getAttribute('data-hospital-name');
+          pendingRoute = {userLat, userLng, hospitalLocation, hospitalName};
+          mapModal.show();
+        }, function() {
+          alert('Could not get your location.');
+        });
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    });
+  });
+
+  mapModalEl.addEventListener('shown.bs.modal', function () {
+    if (pendingRoute) {
+      setTimeout(function() {
+        if (map) {
+          map.remove();
+          document.getElementById('route-map').innerHTML = '';
+          document.getElementById('route-details').innerHTML = '';
+        }
+        var userLat = pendingRoute.userLat;
+        var userLng = pendingRoute.userLng;
+        var hospitalLocation = pendingRoute.hospitalLocation;
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(hospitalLocation)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data && data.length > 0) {
+              var hospitalLat = parseFloat(data[0].lat);
+              var hospitalLng = parseFloat(data[0].lon);
+              map = L.map('route-map').setView([userLat, userLng], 13);
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+              }).addTo(map);
+              routingControl = L.Routing.control({
+                waypoints: [
+                  L.latLng(userLat, userLng),
+                  L.latLng(hospitalLat, hospitalLng)
+                ],
+                routeWhileDragging: false,
+                show: true, 
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                showAlternatives: false
+              }).addTo(map);
+              routingControl.on('routesfound', function(e) {
+                var routes = e.routes;
+                var summary = routes[0].summary;
+                document.getElementById('route-details').innerHTML =
+                  `<b>Distance:</b> ${(summary.totalDistance / 1000).toFixed(2)} km<br>` +
+                  `<b>Estimated Time:</b> ${(summary.totalTime / 60).toFixed(0)} min`;
+              });
+            } else {
+              document.getElementById('route-details').innerHTML = 'Could not find hospital location.';
+            }
+          });
+        pendingRoute = null;
+      }, 200);
+    }
+  });
+
+  mapModalEl.addEventListener('hidden.bs.modal', function () {
+    if (map) {
+      map.remove();
+      document.getElementById('route-map').innerHTML = '';
+      document.getElementById('route-details').innerHTML = '';
+    }
+  });
+});
+</script>
 {% endblock %}
