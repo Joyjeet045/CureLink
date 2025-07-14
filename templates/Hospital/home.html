@@ -119,7 +119,71 @@
     font-weight: bold;
     width: 100vw;
   }
-  </style>
+  .row.equal-height {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .col-md-4.equal-height-col {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    margin-top: 10px;
+  }
+  .custom-hospital-card {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 520px;
+    max-height: 100%;
+  }
+  .card-img-top {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    object-position: center;
+    background: #fff;
+    border-radius: 5px 5px 0 0;
+  }
+  .custom-hospital-card .card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+  }
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .description-container {
+    flex: 1 1 auto;
+    margin-bottom: 0.5rem;
+  }
+  .card-text.description-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .star-rating {
+    font-size: 24px;
+    color: #f0d417;
+    margin-bottom: 0.5rem;
+  }
+  .btn-block {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+</style>
 
 
 <div class="row mt-4">
@@ -136,31 +200,30 @@
   </div>
 </div>
 
-<div class="row mt-4">
+<div class="row mt-4 equal-height">
   {% for hospital in hospitals %}
-  <div class="col-md-4" style="height: 100%; display: flex; align-items: stretch; margin-top: 10px;">
+  <div class="col-md-4 equal-height-col">
     <div class="card mb-4 shadow-sm custom-hospital-card">
-      <img src="{{ hospital.get_url }}" alt="{{ hospital.name }}" class="card-img-top" style="flex: 1; height: 100%;">
-      <div class="card-body" style="flex: 1;height: auto; overflow: hidden;text-align: center;">
+      <img src="{{ hospital.get_url }}" alt="{{ hospital.name }}" class="card-img-top">
+      <div class="card-body">
         <h5 class="card-title">{{ hospital.name }}</h5>
         <div class="description-container">
-          <p class="card-text description-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ hospital.description }}</p>
+          <p class="card-text description-text">{{ hospital.description }}</p>
           <a href="#" class="read-more-link">Read more</a>
         </div>
         <div class="star-rating">
           {% for i in list %}
           {% if i <= hospital.average_doctor_rating %}
-          <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
-          {% else %} 
-              <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
-            {% endif %}
+          <i class="fas fa-star filled"></i>
+          {% else %}
+          <i class="far fa-star"></i>
+          {% endif %}
           {% endfor %}
         </div>
-        <a href="{% url 'view_all_doctors' hospital.id %}" class="btn btn-primary btn-block" style="margin-top:20px">View All Doctors</a>
-        <a href="#map" class="see-in-maps-button btn btn-success btn-block" data-location="{{ hospital.location }}"  style="margin-top:20px;">See in Maps</a>
+        <a href="{% url 'view_all_doctors' hospital.id %}" class="btn btn-primary btn-block">View All Doctors</a>
+        <a href="#map" class="see-in-maps-button btn btn-success btn-block" data-location="{{ hospital.location }}">See in Maps</a>
       </div>
     </div>
-
   </div>
   {% endfor %}
 </div>
@@ -218,60 +281,6 @@
     
   </div>
   {% endfor %}
-</div>
-<h2 style="margin: 20px;">Based on Your Recent Appointments</h2>
-
-<div class="doctor-profile-container">
-  {% for doctor in doctors %}
-    <div class="doctor-profile">
-      <div class="doctor-profile-header">
-        <h1>{{ doctor.get_name }}</h1>
-        <img src="{{ doctor.profile_pic.url }}" alt="{{ doctor.get_name }}" class="profile-pic">
-      </div>
-      <div class="doctor-details">
-        <p class="department"><b>Department-</b>{{ doctor.department }}</p>        
-        <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
-        <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>  
-      </div>
-    </div>
-  {% endfor %}
-  {% if doctors|length == 0 %}
-  <p class="no-doctors-message">You haven't appointed our doctors before.</p>
-  {% endif %}
-</div>
-<h2 style="margin: 20px;">Our Top Doctors</h2>
-
-<div class="row mt-4" style="display: flex; justify-content: center;">
-    {% for doctor in top_doctors %}
-    <div class="doctor-profile">
-      <div class="doctor-profile-header">
-        <h1>{{ doctor.get_name }}</h1>
-        <img src="{{ doctor.profile_pic.url }}" alt="{{ doctor.get_name }}" class="profile-pic">
-      </div>
-      <div class="doctor-details">
-        <div class="star-rating" style="display: flex;justify-content: center;">
-          <h5 style="color: grey;margin-top: auto;margin-bottom: auto;">{{ doctor.avg_rating}}&nbsp;</h5>
-          <div  style="display: flex ;align-items: center;">
-
-            {% for i in list %}
-            {% if i <= doctor.avg_rating %}
-            <i class="fas fa-star filled"></i> <!-- Use 'fas' for solid stars -->
-            {% else %} 
-            <i class="far fa-star"></i> <!-- Use 'far' for regular (empty) stars -->
-            {% endif %}
-            {% endfor %}
-          </div>
-          <h5 style="color: grey;margin-top: auto;margin-bottom: auto;">&nbsp;({{ doctor.review_count }})</h5>
-        </div>
-        <p class="department"><b>Department-</b>{{ doctor.department }}</p>        
-        <p class="qualifications"><b>Qualifications: </b>{{ doctor.qualifications }}</p> 
-
-        <a href="{% url 'doctor_profile' doctor.id %}" class="full-profile-button">View Full Profile</a>  
-      </div>
-    </div>
-    {% empty %}
-        <p>No top doctors found.</p>
-    {% endfor %}
 </div>
 <div id="map" style="height: 500px;"></div>
 

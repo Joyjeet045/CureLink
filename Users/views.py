@@ -2,12 +2,14 @@ from django.shortcuts import render,redirect
 from django.contrib.auth.models import User,auth
 from django.contrib import messages
 from .models import AdminKey
-# Create your views here.
+from Hospitals.models import Hospital, doctor_departments, Doctor
 
 def register_page(request):
   if request.user.is_authenticated:
     messages.success(request,'You are already logged in!')
     return redirect('/')
+  hospitals_list = Hospital.objects.all()
+  depts = doctor_departments
   if request.method=='POST':
     first_name = request.POST['first_name']
     last_name = request.POST['last_name']
@@ -15,28 +17,44 @@ def register_page(request):
     username = request.POST['username']
     password1 = request.POST['password1']
     password2 = request.POST['password2']
+    is_doctor = request.POST.get('is_doctor')
     if(password1==password2):
-      #if the username matches reject them
       if User.objects.filter(username=username):
         messages.info(request,'Username already exists')
         return  redirect('register')
       elif User.objects.filter(email=email):
-        messages.info(request,"You can\'t have account with same mail")
+        messages.info(request,"You can't have account with same mail")
         return redirect('register')
       else:
-        #check if user is admin
-        admin_key=request.POST['admin_key']
-        if(admin_key==''):
-          #user is not an admin
+        admin_key = request.POST.get('admin_key', '')
+        if(admin_key=='') and not is_doctor:
           user=User.objects.create_user(username=username, password=password1, email=email,first_name=first_name, last_name=last_name)
           user.save()
           messages.success(request,"Successfully logged in!!")
           return redirect('login')
+        elif is_doctor:
+          user=User.objects.create_user(username=username, password=password1, email=email,first_name=first_name, last_name=last_name)
+          user.save()
+          mobile = request.POST.get('mobile','')
+          department = request.POST.get('department','')
+          qualifications = request.POST.get('qualifications','')
+          hospitals = request.POST.getlist('hospitals')
+          profile_pic = request.FILES.get('profile_pic')
+          doctor = Doctor.objects.create(
+            firstname=first_name,
+            lastname=last_name,
+            mobile=mobile,
+            department=department,
+            qualifications=qualifications,
+            profile_pic=profile_pic
+          )
+          doctor.save()
+          doctor.hospitals.set(hospitals)
+          messages.success(request,"Doctor registered successfully!")
+          return redirect('login')
         else:
-          #user is an admin
           if(AdminKey.objects.filter(admin_key=admin_key).exists()):
             user=User.objects.create_user(username=username, password=password1, email=email,first_name=first_name, last_name=last_name)
-            #whether the user is admin/not is handled by django itself
             user.is_staff=True
             user.is_superuser = True
             user.save()
@@ -46,10 +64,10 @@ def register_page(request):
             messages.info(request,'Invalid access key')
             return redirect('register')
     else:
-        messages.info(request,"Password's don\'t match")
+        messages.info(request,"Password's don't match")
         return redirect("/register")
   else:
-    return  render(request,'Users/register.html')  
+    return  render(request,'Users/register.html',{'hospital_ch': hospitals_list, 'depts': depts})
 
 def login_page(request):
   if request.user.is_authenticated:
@@ -65,7 +83,6 @@ def login_page(request):
     else:
       messages.info(request, 'Invalid username or password')
       return redirect('login')
-  #probably a GET request
   else:
     return  render(request,'Users/login.html')
 def logout_page(request):

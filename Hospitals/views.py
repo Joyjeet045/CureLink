@@ -1,20 +1,17 @@
-from django.shortcuts import render,get_object_or_404,redirect
+from django.shortcuts import render, get_object_or_404, redirect
 from django.core import serializers
 from django.db import transaction
 from django.http import JsonResponse
 from django.core.paginator import Paginator
-from django.db.models import Avg,Count
+from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
-from .models import Doctor,Hospital,State,Timing,Review,Appointment
+from django.contrib.auth.models import User
+from .models import Doctor, Hospital, State, Timing, Review, Appointment
 from .constants import doctor_departments
-from datetime import datetime,date,timedelta
+from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q
-
-# Create your views here.
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -138,8 +135,15 @@ def update_doctor_status(doctor):
         doctor.status = False  
         doctor.save()
 
-def doctor_profile(request,doctor_id):
-  doctor=get_object_or_404(Doctor,id=doctor_id)
+def doctor_profile(request,doctor_id=None):
+  user = request.user
+  if doctor_id is None and user.is_authenticated:
+    if Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).exists():
+      doctor = Doctor.objects.get(firstname=user.first_name, lastname=user.last_name)
+    else:
+      return redirect('home')
+  else:
+    doctor=get_object_or_404(Doctor,id=doctor_id)
   reviews=Review.objects.filter(doctor=doctor).order_by('-rating')
   list=range(1,6)
   top_review_count=len(reviews)//2+1
@@ -184,9 +188,7 @@ def get_available_timings(request):
     hospital=request.GET.get('hospital')
     doctor=request.GET.get('doctor')
     selected_date=datetime.strptime(selected_date_str,'%a %b %d %Y %H:%M:%S GMT%z (India Standard Time)')
-    day_of_week = selected_date.strftime("%A")  # Convert the selected date to the day of the week
-    
-    # Query your Timings model to get available timings for the specified day_of_week
+    day_of_week = selected_date.strftime("%A")
     available_timings = Timing.objects.filter(day_of_week=day_of_week,doctor__id=doctor,hospital__name=hospital).values('start_time', 'end_time')
     
     return JsonResponse(list(available_timings), safe=False)

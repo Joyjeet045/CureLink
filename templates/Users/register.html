@@ -11,7 +11,7 @@
 			<div class="row d-flex justify-content-center">
 				<div class="col-lg-8">
 					<h2 class="fw-bold mb-5">Sign Up!</h2>
-          <form method="POST" action="{% url 'register' %}">
+          <form method="POST" action="{% url 'register' %}" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="row">
               <div class="col-md-6 mb-4">
@@ -53,14 +53,70 @@
 						</div>
 						<br>
 
-            <!-- Staff Inputs -->
 						<p class="text-center">Are you a staff member? If yes, enter your admin key!</p>
             <div class="form-outline mb-4">
 							<input type="password" id="admin_key" class="form-control" name="admin_key"
 								placeholder="Admin key" />
 							<label class="form-label" for="admin_key"> Admin key </label>
 						</div>
-            <!-- block buttons are full-width -->
+            <div class="form-check mb-4">
+              <input class="form-check-input" type="checkbox" id="is_doctor" name="is_doctor">
+              <label class="form-check-label" for="is_doctor">Are you a doctor?</label>
+            </div>
+            <div id="doctor-fields" style="display:none;">
+              <div class="form-outline mb-4">
+                <input type="text" id="mobile" class="form-control" name="mobile" placeholder="Mobile" />
+                <label class="form-label" for="mobile">Mobile</label>
+              </div>
+              <div class="mb-4">
+                <label for="department" class="form-label">Department</label>
+                <select id="department" class="form-select" name="department">
+                  {% for dept in depts %}
+                  <option value="{{ dept }}">{{dept}}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="mb-4">
+                <label for="profile_pic" class="form-label">Profile Picture</label>
+                <input type="file" id="profile_pic" class="form-control" name="profile_pic">
+              </div>
+              <div class="mb-4">
+                <label for="hospitals" class="form-label">Hospitals</label>
+                <select multiple id="hospitals" class="form-select" name="hospitals">
+                  {% for hospital in hospital_ch %}
+                  <option value="{{ hospital.id }}">{{ hospital.name }} - {{hospital.state}}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="form-outline mb-4">
+                <input type="text" id="qualifications" class="form-control" name="qualifications" placeholder="Qualifications" />
+                <label class="form-label" for="qualifications">Qualifications</label>
+              </div>
+            </div>
+            <script>
+              document.addEventListener('DOMContentLoaded', function() {
+                var isDoctor = document.getElementById('is_doctor');
+                var adminKey = document.getElementById('admin_key');
+                var doctorFields = document.getElementById('doctor-fields');
+                isDoctor.addEventListener('change', function() {
+                  if (this.checked) {
+                    doctorFields.style.display = '';
+                    adminKey.disabled = true;
+                  } else {
+                    doctorFields.style.display = 'none';
+                    adminKey.disabled = false;
+                  }
+                });
+                adminKey.addEventListener('input', function() {
+                  if (this.value.length > 0) {
+                    isDoctor.disabled = true;
+                    doctorFields.style.display = 'none';
+                  } else {
+                    isDoctor.disabled = false;
+                  }
+                });
+              });
+            </script>
             <input type="submit" class="btn btn-primary btn-block" value="Register with a Click">
           </form>
           <div class="text-center">
