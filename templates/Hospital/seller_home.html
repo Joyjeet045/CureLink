@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <h2 class="mb-4">Add or Update Medicine</h2>
+  {% if success %}
+    <div class="alert alert-success">Medicine added/updated successfully!</div>
+  {% endif %}
+  <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="medicine_id" class="form-label">Select Existing Medicine</label>
+      <select class="form-select" id="medicine_id" name="medicine_id" style="width: 100%">
+        <option value="">-- Add New Medicine --</option>
+        {% for med in all_medicines %}
+          <option value="{{ med.id }}">{{ med.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div id="new-medicine-fields-container"></div>
+    
+    <template id="new-medicine-fields-template">
+      <div id="new-medicine-fields">
+        <div class="mb-3">
+          <label for="new_medicine_name" class="form-label">New Medicine Name</label>
+          <input type="text" class="form-control" id="new_medicine_name" name="new_medicine_name" required>
+        </div>
+        <div class="mb-3">
+          <label for="description" class="form-label">Description</label>
+          <textarea class="form-control" id="description" name="description"></textarea>
+        </div>
+        <div class="mb-3">
+          <label for="picture" class="form-label">Medicine Picture</label>
+          <input type="file" class="form-control" id="picture" name="picture" accept="image/*">
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="requires_prescription" name="requires_prescription">
+          <label class="form-check-label" for="requires_prescription">Requires Prescription</label>
+        </div>
+        <div class="mb-3">
+          <label for="price" class="form-label">Price</label>
+          <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" required>
+        </div>
+      </div>
+    </template>
+    
+    <div class="mb-3">
+      <label for="stock" class="form-label">Stock</label>
+      <input type="number" class="form-control" id="stock" name="stock" min="1" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+  </form>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var medicineSelect = document.getElementById('medicine_id');
+    var newFieldsContainer = document.getElementById('new-medicine-fields-container');
+    var newFieldsTemplate = document.getElementById('new-medicine-fields-template');
+    var stockField = document.getElementById('stock');
+
+    function showNewFields() {
+      // Only show if fields don't already exist
+      if (!document.getElementById('new-medicine-fields')) {
+        var clone = document.importNode(newFieldsTemplate.content, true);
+        newFieldsContainer.appendChild(clone);
+      }
+    }
+
+    function removeNewFields() {
+      var fields = document.getElementById('new-medicine-fields');
+      if (fields) {
+        fields.remove();
+      }
+    }
+
+    function toggleFields() {
+      if (medicineSelect.value === "" || medicineSelect.value === null) {
+        // No medicine selected - show new medicine fields
+        showNewFields();
+      } else {
+        // Medicine selected - remove new medicine fields, keep only stock
+        removeNewFields();
+      }
+      
+      // Stock field is always enabled
+      stockField.disabled = false;
+      stockField.removeAttribute('readonly');
+    }
+
+    // Listen for changes in the select dropdown
+    medicineSelect.addEventListener('change', toggleFields);
+    
+    // Initialize the form on page load
+    toggleFields();
+
+    // Initialize Select2
+    $(medicineSelect).select2({
+      placeholder: '-- Add New Medicine --',
+      allowClear: true,
+      width: 'resolve'
+    });
+  });
+</script>
+{% endblock %}

@@ -134,3 +134,26 @@ class MedicineEntry(models.Model):
     def __str__(self):
         return f'{self.medicine} ({self.dosage} {self.dosage_unit})'
 
+class Medicine(models.Model):
+    CURE_CHOICES = [
+        ('Body Pain', 'Body Pain'),
+        ('Diabetes', 'Diabetes'),
+        ('Fever', 'Fever'),
+        ('Cold', 'Cold'),
+        ('Hypertension', 'Hypertension'),
+        ('Allergy', 'Allergy'),
+        ('Asthma', 'Asthma'),
+        ('Other', 'Other'),
+    ]
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    requires_prescription = models.BooleanField(default=False)
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medicines')
+    stock = models.PositiveIntegerField(default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    picture = models.ImageField(upload_to='medicine_pics/', null=True, blank=True)
+    cure_to = models.CharField(max_length=30, choices=CURE_CHOICES, default='Body Pain')
+
+    def __str__(self):
+        return self.name
+

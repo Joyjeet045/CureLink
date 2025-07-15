@@ -33,39 +33,32 @@
             aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <i class="fas fa-bars"></i>
         </button>
-      
-      <div class="collapse navbar-collapse d-flex  justify-content-between" id="navbarNav">
+      <div class="collapse navbar-collapse d-flex justify-content-between" id="navbarNav">
         <ul class="navbar-nav">
           <li class="nav-item">
             <a class="nav-link">Welcome <b>{{ user }}</b></a>                        
           </li>
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'view_doctors' %}">Doctors</a>
-          </li>
           {% if user.is_authenticated %}
-            {% if user.is_staff %}
-              <li class="nav-item">
-                <a class="nav-link" href="{% url 'doctors' %}">Add Doctor</a>
-              </li>
-            {% endif %}
-            <li class="nav-item"><a href="{% url 'user_dashboard' %}" class="nav-link">My Dashboard</a></li>         
-            <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>         
+            {% if user.profile.role == 'seller' %}
+              <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
             {% else %}
+              <li class="nav-item"><a class="nav-link" href="{% url 'view_doctors' %}">Doctors</a></li>
+              <li class="nav-item"><a href="{% url 'user_dashboard' %}" class="nav-link">My Dashboard</a></li>
+              <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
+            {% endif %}
+          {% else %}
             <li class="nav-item"><a href="{% url 'login' %}" class="nav-link">Login</a></li>
           {% endif %}
         </ul>
-        {% if user.is_staff %}
-
-        <ul class="navbar-nav">
-          <a href="{% url 'doctors' %}" class="btn btn-primary">Add Doctor</a>
-        </ul>
-        {% endif %}
+        <div class="d-flex align-items-center ms-auto">
+          <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
+          <a href="{% url 'lab_tests' %}" class="btn btn-outline-success mx-1">LAB TESTS</a>
+        </div>
       </div>
     </div>
   </nav>
   <br>
   <div class="container">
-
     {% block content %}
     {% endblock %}
   </div>
@@ -76,14 +69,12 @@
   <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.2);">
     Made by
     <div class="container p-4 d-flex flex-row justify-content-center">
-      
         <div class="col-lg-6 col-md-12 mb-4 m-md-1">
           <h5 class="text-uppercase">Joyjeet Roy</h5>
         </div>
         <div class="col-lg-6 col-md-12 mb-4 m-md-1">
           <h5 class="text-uppercase">Bhaagyesh Sajja</h5>
         </div>
-      
     </div>
   </div>
 </footer>

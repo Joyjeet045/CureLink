@@ -1,3 +1,4 @@
+# Standard Django and third-party imports
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core import serializers
 from django.db import transaction
@@ -7,12 +8,13 @@ from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Doctor, Hospital, State, Timing, Review, Appointment
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 from django.views.decorators.csrf import csrf_exempt
+from Users.models import UserProfile
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -28,38 +30,69 @@ def geocode_hospitals(h_location):
 
 @user_passes_test(is_authenticated,login_url="/login/")
 def home_page(request):
-  
-  states=State.objects.all()
-  state_filter=request.GET.get('state')
-  list=range(1,6)
-  if state_filter and state_filter != "All":
-    hospitals= Hospital.objects.filter(state=state_filter)
-  else:
-    hospitals=Hospital.objects.all()
-  paginator = Paginator(hospitals, 8)  # 8 items per page
-  page = request.GET.get('page')
-  hospitals = paginator.get_page(page)
-  nearest_hospitals=[]
-  if request.method=='POST':
-    user_latitude=request.POST.get('user_latitude')
-    user_longitude = request.POST.get('user_longitude')
-    user_coords=[float(user_latitude),float(user_longitude)]
-    hospitals=Hospital.objects.all()
-    for hospital in hospitals:
-      result=geocode_hospitals(hospital.location)
-      if result[0] is not None and result[1] is not None:
-        hospital_latitude, hospital_longitude = result
-        hospital_coords = (hospital_latitude, hospital_longitude)
-        distance=geodesic(user_coords,hospital_coords).kilometers
-        nearest_hospitals.append((hospital, distance))
-    nearest_hospitals=sorted(nearest_hospitals,key=lambda x:x[1])[:5]
-    print(nearest_hospitals)
+    user = request.user
+    # Check if user is a seller
+    if hasattr(user, 'profile') and user.profile.role == 'seller':
+        # Handle form submission for adding medicine
+        if request.method == 'POST':
+            medicine_id = request.POST.get('medicine_id')
+            new_medicine_name = request.POST.get('new_medicine_name')
+            description = request.POST.get('description', '')
+            requires_prescription = request.POST.get('requires_prescription') == 'on'
+            stock = request.POST.get('stock', 0)
+            price = request.POST.get('price', 0)
+            picture = request.FILES.get('picture')
+            if new_medicine_name:
+                # Add a new medicine
+                medicine = Medicine.objects.create(
+                    name=new_medicine_name,
+                    description=description,
+                    requires_prescription=requires_prescription,
+                    seller=user,
+                    stock=stock,
+                    price=price,
+                    picture=picture
+                )
+            elif medicine_id:
+                medicine = Medicine.objects.get(id=medicine_id, seller=user)
+                medicine.stock += int(stock)
+                medicine.price = price
+                medicine.save()
+            return render(request, 'Hospital/seller_home.html', {'success': True, 'medicines': Medicine.objects.filter(seller=user)})
+        all_medicines = Medicine.objects.filter(seller=user)
+        return render(request, 'Hospital/seller_home.html', {'all_medicines': all_medicines})
 
-  past_appointments = Appointment.objects.filter(user=request.user)
-  departments = set(appointment.doctor.department for appointment in past_appointments)
-  shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
-  top_doctors=Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
-  return render(request,'Hospital/home.html',{"hospitals":hospitals,"states":states,"list":list, 'nearest_hospitals': nearest_hospitals,'doctors':shuffled_doctors,'top_doctors':top_doctors})
+    states = State.objects.all()
+    state_filter = request.GET.get('state')
+    list = range(1, 6)
+    if state_filter and state_filter != "All":
+        hospitals = Hospital.objects.filter(state=state_filter)
+    else:
+        hospitals = Hospital.objects.all()
+    paginator = Paginator(hospitals, 8)  # 8 items per page
+    page = request.GET.get('page')
+    hospitals = paginator.get_page(page)
+    nearest_hospitals = []
+    if request.method == 'POST':
+        user_latitude = request.POST.get('user_latitude')
+        user_longitude = request.POST.get('user_longitude')
+        user_coords = [float(user_latitude), float(user_longitude)]
+        hospitals = Hospital.objects.all()
+        for hospital in hospitals:
+            result = geocode_hospitals(hospital.location)
+            if result[0] is not None and result[1] is not None:
+                hospital_latitude, hospital_longitude = result
+                hospital_coords = (hospital_latitude, hospital_longitude)
+                distance = geodesic(user_coords, hospital_coords).kilometers
+                nearest_hospitals.append((hospital, distance))
+        nearest_hospitals = sorted(nearest_hospitals, key=lambda x: x[1])[:5]
+        print(nearest_hospitals)
+
+    past_appointments = Appointment.objects.filter(user=request.user)
+    departments = set(appointment.doctor.department for appointment in past_appointments)
+    shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
+    top_doctors = Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
+    return render(request, 'Hospital/home.html', {"hospitals": hospitals, "states": states, "list": list, 'nearest_hospitals': nearest_hospitals, 'doctors': shuffled_doctors, 'top_doctors': top_doctors})
 @transaction.atomic
 @user_passes_test(is_admin,login_url="login")
 def add_doctor(request):
@@ -254,42 +287,18 @@ def reschedule_appointment(request, appointment_id):
         messages.error(request, 'Appointment not found.')
         return redirect('user_dashboard')
 
-@csrf_exempt
-def prescription_modal(request, appointment_id):
-    from .models import Appointment, Prescription, MedicineEntry
-    appointment = Appointment.objects.get(id=appointment_id)
-    prescription = getattr(appointment, 'prescription', None)
-    if request.method == 'POST':
-        data = request.POST
-        diagnosis = data.get('diagnosis', '')
-        medicines = data.getlist('medicine')
-        dosages = data.getlist('dosage')
-        dosage_units = data.getlist('dosage_unit')
-        num_days_list = data.getlist('num_days')
-        num_days_units = data.getlist('num_days_unit')
-        frequencies = data.getlist('frequency')
-        food_relations = data.getlist('food_relation')
-        if prescription:
-            prescription.diagnosis = diagnosis
-            prescription.save()
-            prescription.medicines.all().delete()
-        else:
-            prescription = Prescription.objects.create(
-                appointment=appointment,
-                diagnosis=diagnosis
-            )
-        for i in range(len(medicines)):
-            MedicineEntry.objects.create(
-                prescription=prescription,
-                medicine=medicines[i],
-                dosage=dosages[i],
-                dosage_unit=dosage_units[i],
-                num_days=num_days_list[i],
-                num_days_unit=num_days_units[i],
-                frequency=frequencies[i],
-                food_relation=food_relations[i]
-            )
-        return JsonResponse({'success': True, 'message': 'Prescription sent to patient.'})
-    return render(request, 'Hospital/prescription_form.html', {'appointment': appointment, 'prescription': prescription})
+def medicines_page(request):
+    cure_to_filter = request.GET.get('cure_to', '')
+    medicines = Medicine.objects.all()
+    if cure_to_filter:
+        medicines = medicines.filter(cure_to=cure_to_filter)
+    cure_choices = Medicine.CURE_CHOICES
+    return render(request, 'Hospital/medicines.html', {
+        'medicines': medicines,
+        'cure_choices': cure_choices,
+        'selected_cure': cure_to_filter
+    })
+def lab_tests_page(request):
+    return render(request, 'Hospital/lab_tests.html')
 
 

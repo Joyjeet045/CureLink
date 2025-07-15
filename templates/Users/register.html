@@ -53,15 +53,20 @@
 						</div>
 						<br>
 
-						<p class="text-center">Are you a staff member? If yes, enter your admin key!</p>
-            <div class="form-outline mb-4">
-							<input type="password" id="admin_key" class="form-control" name="admin_key"
-								placeholder="Admin key" />
-							<label class="form-label" for="admin_key"> Admin key </label>
-						</div>
-            <div class="form-check mb-4">
-              <input class="form-check-input" type="checkbox" id="is_doctor" name="is_doctor">
-              <label class="form-check-label" for="is_doctor">Are you a doctor?</label>
+            <div class="mb-4">
+              <label class="form-label">Register as:</label><br>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="role" id="role_user" value="user" checked>
+                <label class="form-check-label" for="role_user">User</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="role" id="role_doctor" value="doctor">
+                <label class="form-check-label" for="role_doctor">Doctor</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="role" id="role_seller" value="seller">
+                <label class="form-check-label" for="role_seller">Seller</label>
+              </div>
             </div>
             <div id="doctor-fields" style="display:none;">
               <div class="form-outline mb-4">
@@ -95,26 +100,20 @@
             </div>
             <script>
               document.addEventListener('DOMContentLoaded', function() {
-                var isDoctor = document.getElementById('is_doctor');
-                var adminKey = document.getElementById('admin_key');
                 var doctorFields = document.getElementById('doctor-fields');
-                isDoctor.addEventListener('change', function() {
-                  if (this.checked) {
+                var roleRadios = document.getElementsByName('role');
+                function updateRoleFields() {
+                  var selectedRole = Array.from(roleRadios).find(r => r.checked).value;
+                  if (selectedRole === 'doctor') {
                     doctorFields.style.display = '';
-                    adminKey.disabled = true;
                   } else {
                     doctorFields.style.display = 'none';
-                    adminKey.disabled = false;
                   }
+                }
+                roleRadios.forEach(function(radio) {
+                  radio.addEventListener('change', updateRoleFields);
                 });
-                adminKey.addEventListener('input', function() {
-                  if (this.value.length > 0) {
-                    isDoctor.disabled = true;
-                    doctorFields.style.display = 'none';
-                  } else {
-                    isDoctor.disabled = false;
-                  }
-                });
+                updateRoleFields();
               });
             </script>
             <input type="submit" class="btn btn-primary btn-block" value="Register with a Click">
