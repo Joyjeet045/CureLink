@@ -13,6 +13,8 @@ urlpatterns=[
   path('dashboard/me/', views.dashboard, name='user_dashboard'),
   path('cancel-appointment/<int:appointment_id>/', views.cancel_appointment, name='cancel_appointment'),
   path('reschedule-appointment/<int:appointment_id>/', views.reschedule_appointment, name='reschedule_appointment'),
+  path('api/prescription/<int:appointment_id>/', views.get_prescription_details, name='get_prescription_details'),
   path('medicines/', views.medicines_page, name='medicines'),
   path('lab-tests/', views.lab_tests_page, name='lab_tests'),
+  path('appointment/<int:appointment_id>/prescription/', views.add_prescription, name='add_prescription'),
 ]

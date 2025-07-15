@@ -8,13 +8,16 @@ from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
+from django.core.exceptions import PermissionDenied
+
 from geopy.distance import geodesic
 from django.views.decorators.csrf import csrf_exempt
 from Users.models import UserProfile
+from django.views.decorators.http import require_GET
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -42,6 +45,7 @@ def home_page(request):
             stock = request.POST.get('stock', 0)
             price = request.POST.get('price', 0)
             picture = request.FILES.get('picture')
+            category = request.POST.get('category', 'Body Pain')
             if new_medicine_name:
                 # Add a new medicine
                 medicine = Medicine.objects.create(
@@ -51,16 +55,17 @@ def home_page(request):
                     seller=user,
                     stock=stock,
                     price=price,
-                    picture=picture
+                    picture=picture,
+                    cure_to=category
                 )
             elif medicine_id:
                 medicine = Medicine.objects.get(id=medicine_id, seller=user)
                 medicine.stock += int(stock)
                 medicine.price = price
                 medicine.save()
-            return render(request, 'Hospital/seller_home.html', {'success': True, 'medicines': Medicine.objects.filter(seller=user)})
+            return render(request, 'Hospital/seller_home.html', {'success': True, 'medicines': Medicine.objects.filter(seller=user), 'cure_choices': Medicine.CURE_CHOICES})
         all_medicines = Medicine.objects.filter(seller=user)
-        return render(request, 'Hospital/seller_home.html', {'all_medicines': all_medicines})
+        return render(request, 'Hospital/seller_home.html', {'all_medicines': all_medicines, 'cure_choices': Medicine.CURE_CHOICES})
 
     states = State.objects.all()
     state_filter = request.GET.get('state')
@@ -300,5 +305,63 @@ def medicines_page(request):
     })
 def lab_tests_page(request):
     return render(request, 'Hospital/lab_tests.html')
+
+def add_prescription(request, appointment_id):
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+    medicines = Medicine.objects.all()
+    if request.method == 'POST':
+        medicine_ids = request.POST.getlist('medicine')
+        dosages = request.POST.getlist('dosage')
+        dosage_units = request.POST.getlist('dosage_unit')
+        num_days_list = request.POST.getlist('num_days')
+        frequencies = request.POST.getlist('frequency')
+        food_relations = request.POST.getlist('food_relation')
+        diagnosis = request.POST.get('diagnosis', '')
+        with transaction.atomic():
+            Prescription.objects.filter(appointment=appointment).delete()
+            prescription = Prescription.objects.create(appointment=appointment, diagnosis=diagnosis)
+            for i in range(len(medicine_ids)):
+                medicine_obj = Medicine.objects.get(id=medicine_ids[i])
+                MedicineEntry.objects.create(
+                    prescription=prescription,
+                    medicine=medicine_obj,
+                    dosage=dosages[i],
+                    dosage_unit=dosage_units[i],
+                    num_days=num_days_list[i],
+                    frequency=frequencies[i],
+                    food_relation=food_relations[i]
+                )
+        return JsonResponse({'success': True, 'message': 'Prescription sent to patient.'})
+    return render(request, 'Hospital/prescription_form.html', {'appointment': appointment, 'medicines': medicines})
+
+@require_GET
+def get_prescription_details(request, appointment_id):
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+    if request.user != appointment.user:
+        raise PermissionDenied("You are not authorized to view this prescription.")
+    try:
+        prescription = appointment.prescription
+    except Prescription.DoesNotExist:
+        return JsonResponse({"success": False, "error": "No prescription found for this appointment."}, status=404)
+    medicines = [
+        {
+            "id": entry.medicine.id,
+            "name": entry.medicine.name,
+            "dosage": entry.dosage,
+            "dosage_unit": entry.dosage_unit,
+            "num_days": entry.num_days,
+            "frequency": entry.frequency,
+            "food_relation": entry.food_relation,
+        }
+        for entry in prescription.medicines.all()
+    ]
+    data = {
+        "success": True,
+        "diagnosis": prescription.diagnosis,
+        "medicines": medicines,
+        "doctor_notes": appointment.notes,
+        "doctor_name": appointment.doctor.get_name,
+    }
+    return JsonResponse(data)
 
 

@@ -26,6 +26,14 @@
           <input type="text" class="form-control" id="new_medicine_name" name="new_medicine_name" required>
         </div>
         <div class="mb-3">
+          <label for="category" class="form-label">Category</label>
+          <select class="form-select" id="category" name="category" required>
+            {% for value, label in cure_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
           <label for="description" class="form-label">Description</label>
           <textarea class="form-control" id="description" name="description"></textarea>
         </div>

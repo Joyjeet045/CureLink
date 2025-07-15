@@ -35,7 +35,31 @@
     .spread-container { width: 100vw; max-width: 100vw; padding-left: 4px; padding-right: 4px; }
     .spread-table th, .spread-table td { padding-left: 6px; padding-right: 6px; }
   }
+  
+  /* Enhanced highlighting styles */
+  .medicine-highlight {
+    background: #fff9c4 !important;
+    border: 2px solid #ffe082 !important;
+    box-shadow: 0 0 10px 2px #fffde7 !important;
+    color: #333 !important;
+    transition: all 0.5s ease !important;
+  }
+  
+  /* Ensure the entire row gets highlighted */
+  .row-highlight {
+    background: #fff9c4 !important;
+    border: 2px solid #ffe082 !important;
+    box-shadow: 0 0 10px 2px #fffde7 !important;
+    transition: all 0.5s ease !important;
+  }
+  
+  /* Override any Bootstrap table styles */
+  .table > tbody > tr.row-highlight > td {
+    background: #fff9c4 !important;
+    border-color: #ffe082 !important;
+  }
 </style>
+
 <div class="container mt-5 spread-container">
   <div class="row justify-content-center">
     <div class="col-12">
@@ -69,7 +93,7 @@
               </thead>
               <tbody>
                 {% for medicine in medicines %}
-                <tr>
+                <tr id="medicine-{{ medicine.id }}">
                   <td>{{ medicine.name }}</td>
                   <td>{{ medicine.description }}</td>
                   <td>{{ medicine.cure_to }}</td>
@@ -97,4 +121,41 @@
     </div>
   </div>
 </div>
-{% endblock %} 
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const params = new URLSearchParams(window.location.search);
+  const highlightId = params.get('highlight');
+  if (highlightId) {    
+    const row = document.getElementById('medicine-' + highlightId);
+    
+    if (row) {      
+      row.classList.add('row-highlight');
+      
+      const tds = row.querySelectorAll('td');
+      
+      tds.forEach((td, index) => {
+        td.classList.add('medicine-highlight');
+      });
+      
+      row.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center',
+        inline: 'nearest'
+      });
+      
+      setTimeout(() => {
+        row.classList.remove('row-highlight');
+        tds.forEach(td => td.classList.remove('medicine-highlight'));
+      }, 3000);
+      
+    } else {
+      const allRows = document.querySelectorAll('tr[id^="medicine-"]');
+      allRows.forEach(row => console.log('Found row:', row.id));
+    }
+  } else {
+    console.log('No highlight parameter in URL');
+  }
+});
+</script>
+{% endblock %}

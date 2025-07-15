@@ -72,9 +72,56 @@
 
   /* Fix prescription form specific styling */
   #prescription-modal-body {
-    min-height: 200px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 24px;
   }
-
+  #prescription-content h6 {
+    margin-top: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+  #prescription-medicines-list {
+    list-style: none;
+    padding: 0;
+  }
+  .medicine-entry {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .medicine-entry .medicine-title {
+    font-weight: 500;
+    color: #007bff;
+    margin-bottom: 4px;
+  }
+  .medicine-entry .medicine-details {
+    font-size: 15px;
+    color: #444;
+    margin-bottom: 8px;
+  }
+  .medicine-entry .view-in-store-btn {
+    align-self: flex-start;
+    margin-top: 4px;
+    font-size: 14px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    transition: background 0.2s;
+    text-decoration: none;
+  }
+  .medicine-entry .view-in-store-btn:hover {
+    background: #218838;
+    color: #fff;
+    text-decoration: none;
+  }
   /* Loading state for buttons */
   .btn:disabled {
     opacity: 0.6;
@@ -121,6 +168,9 @@
                         <a href="{% url 'cancel_appointment' appointment.id %}" class="btn btn-danger btn-sm" style="color: #fff;">Cancel</a>
                         <a href="{% url 'reschedule_appointment' appointment.id %}" class="btn btn-warning btn-sm" style="color: #fff;">Reschedule</a>
                         <button class="btn btn-success btn-sm see-in-maps-btn ms-auto" data-hospital-location="{{ appointment.hospital.location }}" data-hospital-name="{{ appointment.hospital.name }}">See in Maps</button>
+                        {% if appointment.prescription %}
+                          <button class="btn btn-primary btn-sm view-prescription-btn ms-2" data-appointment-id="{{ appointment.id }}">View Prescription</button>
+                        {% endif %}
                       </div>
                     </div>
                   {% endfor %}
@@ -151,6 +201,11 @@
                       <p>Doctor: {{ appointment.doctor.get_name }}</p>
                       <p>Hospital: {{ appointment.hospital.name }}</p>
                       <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
+                      <div class="d-flex align-items-center" style="gap: 10px;">
+                        {% if appointment.prescription %}
+                          <button class="btn btn-primary btn-sm view-prescription-btn ms-auto" data-appointment-id="{{ appointment.id }}">View Prescription</button>
+                        {% endif %}
+                      </div>
                     </div>
                   {% endfor %}
                   {% if past_appointments|length == 0 %}
@@ -181,6 +236,30 @@
       <div class="modal-body">
         <div id="route-map" style="height: 400px; width: 100%;"></div>
         <div id="route-details" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="prescriptionModal" tabindex="-1" aria-labelledby="prescriptionModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="prescriptionModalLabel">Prescription Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="prescription-modal-body">
+        <div id="prescription-loading" style="display:none;">Loading...</div>
+        <div id="prescription-content" style="display:none;">
+          <h6>Doctor: <span id="prescription-doctor-name"></span></h6>
+          <h6>Doctor's Notes:</h6>
+          <p id="prescription-doctor-notes"></p>
+          <h6>Diagnosis:</h6>
+          <p id="prescription-diagnosis"></p>
+          <h6>Medicines:</h6>
+          <ul id="prescription-medicines-list"></ul>
+        </div>
+        <div id="prescription-error" class="alert alert-danger" style="display:none;"></div>
       </div>
     </div>
   </div>
@@ -272,6 +351,58 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('route-map').innerHTML = '';
       document.getElementById('route-details').innerHTML = '';
     }
+  });
+
+  var prescriptionModalEl = document.getElementById('prescriptionModal');
+  var prescriptionModal = new bootstrap.Modal(prescriptionModalEl);
+  document.querySelectorAll('.view-prescription-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var appointmentId = btn.getAttribute('data-appointment-id');
+      var loading = document.getElementById('prescription-loading');
+      var content = document.getElementById('prescription-content');
+      var error = document.getElementById('prescription-error');
+      loading.style.display = 'block';
+      content.style.display = 'none';
+      error.style.display = 'none';
+      prescriptionModal.show();
+      fetch(`/api/prescription/${appointmentId}/`)
+        .then(response => response.json())
+        .then(data => {
+          loading.style.display = 'none';
+          if (data.success) {
+            document.getElementById('prescription-doctor-name').textContent = data.doctor_name;
+            document.getElementById('prescription-doctor-notes').textContent = data.doctor_notes || '-';
+            document.getElementById('prescription-diagnosis').textContent = data.diagnosis || '-';
+            var medicinesList = document.getElementById('prescription-medicines-list');
+            medicinesList.innerHTML = '';
+            if (data.medicines.length > 0) {
+              data.medicines.forEach(function(med) {
+                var li = document.createElement('li');
+                li.className = 'medicine-entry';
+                li.innerHTML = `
+                  <div class="medicine-title">${med.name}</div>
+                  <div class="medicine-details">${med.dosage} ${med.dosage_unit}, ${med.frequency}, for ${med.num_days} days${med.food_relation ? ', ' + med.food_relation : ''}</div>
+                  <a class="view-in-store-btn" href="/medicines/?highlight=${med.id}">View in Store</a>
+                `;
+                medicinesList.appendChild(li);
+              });
+            } else {
+              var li = document.createElement('li');
+              li.textContent = 'No medicines prescribed.';
+              medicinesList.appendChild(li);
+            }
+            content.style.display = 'block';
+          } else {
+            error.textContent = data.error || 'No prescription found.';
+            error.style.display = 'block';
+          }
+        })
+        .catch(err => {
+          loading.style.display = 'none';
+          error.textContent = 'Failed to fetch prescription details.';
+          error.style.display = 'block';
+        });
+    });
   });
 });
 </script>

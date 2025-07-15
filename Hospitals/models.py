@@ -122,18 +122,6 @@ class Prescription(models.Model):
     def __str__(self):
         return f'Prescription for {self.appointment}'
 
-class MedicineEntry(models.Model):
-    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE, related_name='medicines')
-    medicine = models.CharField(max_length=100)
-    dosage = models.PositiveIntegerField()
-    dosage_unit = models.CharField(max_length=20, default='Tablet(s)')
-    num_days = models.PositiveIntegerField()
-    num_days_unit = models.CharField(max_length=20, default='Day')
-    frequency = models.CharField(max_length=50)
-    food_relation = models.CharField(max_length=50, blank=True)
-    def __str__(self):
-        return f'{self.medicine} ({self.dosage} {self.dosage_unit})'
-
 class Medicine(models.Model):
     CURE_CHOICES = [
         ('Body Pain', 'Body Pain'),
@@ -153,7 +141,17 @@ class Medicine(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     picture = models.ImageField(upload_to='medicine_pics/', null=True, blank=True)
     cure_to = models.CharField(max_length=30, choices=CURE_CHOICES, default='Body Pain')
-
     def __str__(self):
         return self.name
+
+class MedicineEntry(models.Model):
+    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE, related_name='medicines')
+    medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE)
+    dosage = models.PositiveIntegerField()
+    dosage_unit = models.CharField(max_length=20, default='Tablet(s)')
+    num_days = models.PositiveIntegerField()
+    frequency = models.CharField(max_length=50)
+    food_relation = models.CharField(max_length=50, blank=True)
+    def __str__(self):
+        return f'{self.medicine.name} ({self.dosage} {self.dosage_unit})'
 
