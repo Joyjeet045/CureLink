@@ -17,4 +17,5 @@ urlpatterns=[
   path('medicines/', views.medicines_page, name='medicines'),
   path('lab-tests/', views.lab_tests_page, name='lab_tests'),
   path('appointment/<int:appointment_id>/prescription/', views.add_prescription, name='add_prescription'),
+  path('doctor/take-leave/', views.doctor_take_leave, name='doctor_take_leave'),
 ]

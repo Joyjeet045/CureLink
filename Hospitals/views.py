@@ -8,7 +8,7 @@ from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
@@ -17,7 +17,7 @@ from django.core.exceptions import PermissionDenied
 from geopy.distance import geodesic
 from django.views.decorators.csrf import csrf_exempt
 from Users.models import UserProfile
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -188,14 +188,21 @@ def doctor_profile(request,doctor_id=None):
   top_review_count=len(reviews)//2+1
   top_reviews=reviews[:top_review_count]
   update_doctor_status(doctor)
+  # Determine doctor status based on leave
+  today = date.today()
+  on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
+  doctor_status = 'Unavailable' if on_leave else 'Available'
   if request.method == 'POST':
         review_id_to_delete = request.POST.get('review_id_to_delete')
         if review_id_to_delete:
             if Review.objects.filter(pk=review_id_to_delete).exists():
                 review = get_object_or_404(Review, pk=review_id_to_delete)
                 review.delete()
-  return render(request,'Hospital/view_profile.html',{'doctor':doctor,'top_reviews':top_reviews,'list':list})
+  return render(request,'Hospital/view_profile.html',{'doctor':doctor,'top_reviews':top_reviews,'list':list,'doctor_status':doctor_status})
   
+def is_doctor_available(doctor, date):
+    return not DoctorLeave.objects.filter(doctor=doctor, start_date__lte=date, end_date__gte=date).exists()
+
 def doctor_appointments(request,hospital_id,doctor_id):
   doctor=Doctor.objects.get(id=doctor_id)
   hospital=Hospital.objects.get(id=hospital_id)
@@ -208,6 +215,10 @@ def doctor_appointments(request,hospital_id,doctor_id):
     time = datetime.strptime(time_str,'%H:%M:%S').time()
     notes=request.POST.get('notes')
     user=request.user
+    # Prevent booking if doctor is on leave
+    if not is_doctor_available(doctor, appointment_date):
+        messages.error(request, 'Doctor is unavailable on the selected date due to leave. Please choose another date.')
+        return render(request,'Hospital/book_appointment.html',{'doctor':doctor,'hospital':hospital,'doctor_json': doctor_json,'hospital_json': hospital_json})
     appointment=Appointment(
       user=user,
       doctor=doctor,
@@ -238,8 +249,12 @@ def dashboard(request):
   now = datetime.now()
   from .models import Doctor
   is_doctor = Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).exists()
+  doctor_status = None
   if is_doctor:
     doctor = Doctor.objects.get(firstname=user.first_name, lastname=user.last_name)
+    # Check if doctor is on leave today
+    on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
+    doctor_status = 'Unavailable' if on_leave else 'Available'
     upcoming_appointments = Appointment.objects.filter(
       Q(doctor=doctor, appointment_date=today, time__gt=now.time()) |
       Q(doctor=doctor, appointment_date__gt=today)
@@ -248,7 +263,8 @@ def dashboard(request):
     return render(request, 'Hospital/dashboard.html', {
       'upcoming_appointments': upcoming_appointments,
       'past_appointments': past_appointments,
-      'is_doctor': True
+      'is_doctor': True,
+      'doctor_status': doctor_status
     })
   else:
     upcoming_appointments = Appointment.objects.filter(
@@ -363,5 +379,31 @@ def get_prescription_details(request, appointment_id):
         "doctor_name": appointment.doctor.get_name,
     }
     return JsonResponse(data)
+
+@require_POST
+@user_passes_test(lambda u: u.is_authenticated and hasattr(u, 'first_name') and hasattr(u, 'last_name'), login_url='/login/')
+def doctor_take_leave(request):
+    from .models import Doctor
+    user = request.user
+    # Find doctor by user name (adjust if you have a better relation)
+    doctor = Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).first()
+    if not doctor:
+        return redirect('user_dashboard')
+    leave_range = request.POST.get('leave_dates', '')
+    if ' to ' in leave_range:
+        start_str, end_str = leave_range.split(' to ')
+    elif ' - ' in leave_range:
+        start_str, end_str = leave_range.split(' - ')
+    else:
+        start_str = end_str = leave_range
+    try:
+        start_date = datetime.strptime(start_str.strip(), '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_str.strip(), '%Y-%m-%d').date()
+    except Exception:
+        messages.error(request, 'Invalid date format.')
+        return redirect('user_dashboard')
+    DoctorLeave.objects.create(doctor=doctor, start_date=start_date, end_date=end_date)
+    messages.success(request, f'Leave applied from {start_date} to {end_date}.')
+    return redirect('user_dashboard')
 
 

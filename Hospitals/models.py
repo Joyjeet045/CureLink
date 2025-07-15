@@ -155,3 +155,12 @@ class MedicineEntry(models.Model):
     def __str__(self):
         return f'{self.medicine.name} ({self.dosage} {self.dosage_unit})'
 
+class DoctorLeave(models.Model):
+    doctor = models.ForeignKey('Doctor', on_delete=models.CASCADE, related_name='leaves')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{str(self.doctor)} leave from {self.start_date} to {self.end_date}"
+

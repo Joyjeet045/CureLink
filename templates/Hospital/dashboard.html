@@ -128,10 +128,55 @@
     cursor: not-allowed;
   }
   /* Add any additional CSS styles as needed */
+  .take-leave-btn-container {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1100;
+    margin: 20px 30px 0 0;
+  }
+  .doctor-status {
+    position: absolute;
+    top: 30px;
+    left: 40px;
+    z-index: 1100;
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  .doctor-status-available { color: green; }
+  .doctor-status-unavailable { color: red; }
 </style>
 
-<div class="card mx-4 mx-md-5 shadow-5-strong" style="background: hsla(0, 0%, 100%, 0.8); backdrop-filter: blur(30px);">
+<!-- Remove doctor-status from dashboard -->
+
+<div class="card mx-4 mx-md-5 shadow-5-strong" style="background: hsla(0, 0%, 100%, 0.8); backdrop-filter: blur(30px); position: relative;">
     <div class="card-body py-5 px-md-5">
+        {% if is_doctor %}
+        <div class="take-leave-btn-container">
+          <button id="take-leave-btn" class="btn btn-warning">Take Leave</button>
+        </div>
+        <!-- Leave Modal -->
+        <div class="modal" id="leaveModal" tabindex="-1" style="display:none; background: rgba(0,0,0,0.3);">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <form id="leaveForm" method="post" action="{% url 'doctor_take_leave' %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                  <h5 class="modal-title">Select Leave Dates</h5>
+                  <button type="button" class="btn-close" onclick="closeLeaveModal()"></button>
+                </div>
+                <div class="modal-body">
+                  <label for="leave-dates">Leave Period:</label>
+                  <input type="text" id="leave-dates" name="leave_dates" class="form-control" placeholder="Select date range" required readonly>
+                </div>
+                <div class="modal-footer">
+                  <button type="submit" class="btn btn-primary">Submit Leave</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        {% endif %}
         <div class="row d-flex justify-content-center">
             <div class="col-lg-8">
                 <h2 class="fw-bold mb-5 text-center">User Dashboard</h2>
@@ -406,5 +451,30 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+{% if is_doctor %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script>
+function openLeaveModal() {
+  document.getElementById('leaveModal').style.display = 'block';
+}
+function closeLeaveModal() {
+  document.getElementById('leaveModal').style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('take-leave-btn');
+  if (btn) {
+    btn.addEventListener('click', openLeaveModal);
+  }
+  flatpickr('#leave-dates', {
+    mode: 'range',
+    minDate: 'today',
+    dateFormat: 'Y-m-d',
+    allowInput: false
+  });
+});
+</script>
+{% endif %}
 
 {% endblock %}

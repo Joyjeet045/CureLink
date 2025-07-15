@@ -123,7 +123,7 @@ img.img-fluid {
       <div class="col-md-8">
           <h2>{{ doctor.get_name }}</h2>
           <p>Department: {{ doctor.department }}</p>
-          <p>Status: {% if doctor.status %}<span class="available">Available</span>{% else %}<span class="not-available">Not Available</span>{% endif %}</p>
+          <p>Status: <span class="{% if doctor_status == 'Available' %}available{% else %}not-available{% endif %}">{{ doctor_status }}</span></p>
           <p>Mobile: {{ doctor.mobile }}</p>
           <p class="contact-info">Qualifications: {{ doctor.qualifications }}</p>
       </div>
