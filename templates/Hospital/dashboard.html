@@ -28,6 +28,10 @@
   .status-false {
     color: red;
   }
+  .status-past {
+    color: #dc3545;
+    font-weight: bold;
+  }
   .no-doctors-message {
     font-size: 18px;
     color: #FF0000; 
@@ -152,9 +156,6 @@
 <div class="card mx-4 mx-md-5 shadow-5-strong" style="background: hsla(0, 0%, 100%, 0.8); backdrop-filter: blur(30px); position: relative;">
     <div class="card-body py-5 px-md-5">
         {% if is_doctor %}
-        <div class="take-leave-btn-container">
-          <button id="take-leave-btn" class="btn btn-warning">Take Leave</button>
-        </div>
         <!-- Leave Modal -->
         <div class="modal" id="leaveModal" tabindex="-1" style="display:none; background: rgba(0,0,0,0.3);">
           <div class="modal-dialog">
@@ -177,6 +178,55 @@
           </div>
         </div>
         {% endif %}
+        {% if is_doctor %}
+<div style="display: flex; align-items: center; justify-content: flex-end; gap: 32px; margin-bottom: 24px;">
+  <button id="take-leave-btn" class="btn btn-warning take-leave-btn-custom" style="margin: 0;">
+    TAKE LEAVE
+  </button>
+</div>
+<style>
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+.switch input {display:none;}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px; width: 18px;
+  left: 3px; bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: #28a745;
+}
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+.take-leave-btn-custom {
+  min-width: 120px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: 6px;
+}
+</style>
+{% endif %}
         <div class="row d-flex justify-content-center">
             <div class="col-lg-8">
                 <h2 class="fw-bold mb-5 text-center">User Dashboard</h2>
@@ -232,7 +282,7 @@
                       <p>Time: {{ appointment.time }}</p>
                       <p>Patient: {{ appointment.user.get_full_name|default:appointment.user.username }}</p>
                       <p>Hospital: {{ appointment.hospital.name }}</p>
-                      <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
+                      <p>Status: <span class="status-past">Past</span></p>
                     </div>
                   {% endfor %}
                   {% if past_appointments|length == 0 %}
@@ -245,7 +295,7 @@
                       <p>Time: {{ appointment.time }}</p>
                       <p>Doctor: {{ appointment.doctor.get_name }}</p>
                       <p>Hospital: {{ appointment.hospital.name }}</p>
-                      <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Past</span></p>
+                      <p>Status: <span class="status-past">Past</span></p>
                       <div class="d-flex align-items-center" style="gap: 10px;">
                         {% if appointment.prescription %}
                           <button class="btn btn-primary btn-sm view-prescription-btn ms-auto" data-appointment-id="{{ appointment.id }}">View Prescription</button>

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'Users',   
     'Hospitals',
+    'channels',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -82,6 +83,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'doctors_app.wsgi.application'
 
+ASGI_APPLICATION = 'doctors_app.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases

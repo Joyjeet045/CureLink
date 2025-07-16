@@ -51,8 +51,48 @@
           {% endif %}
         </ul>
         <div class="d-flex align-items-center ms-auto">
-          <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
-          <a href="{% url 'lab_tests' %}" class="btn btn-outline-success mx-1">LAB TESTS</a>
+          {% if user.is_authenticated and user.profile.role == 'doctor' %}
+            <button id="online-toggle-btn" class="btn btn-outline-success mx-1">Go Online</button>
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+              var btn = document.getElementById('online-toggle-btn');
+              fetch('/api/doctor_video_online_state/')
+                .then(response => response.json())
+                .then(data => {
+                  var isOnline = data.online;
+                  btn.textContent = isOnline ? 'Go Offline' : 'Go Online';
+                  btn.classList.toggle('btn-outline-success', isOnline);
+                  btn.classList.toggle('btn-outline-secondary', !isOnline);
+                  btn.onclick = function() {
+                    fetch('{% url "toggle_video_online" %}', {
+                      method: 'POST',
+                      headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json',
+                      },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                      isOnline = data.online;
+                      btn.textContent = isOnline ? 'Go Offline' : 'Go Online';
+                      btn.classList.toggle('btn-outline-success', isOnline);
+                      btn.classList.toggle('btn-outline-secondary', !isOnline);
+                    });
+                  };
+                });
+            });
+            </script>
+          {% endif %}
+          <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative" onclick="openVideoConsultationWindow()">
+            VIDEO CONSULTATION
+            <span id="online-doctor-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+              0
+            </span>
+          </a>
+          {% if not user.is_authenticated or user.profile.role != 'doctor' %}
+            <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
+            <a href="{% url 'lab_tests' %}" class="btn btn-outline-success mx-1">LAB TESTS</a>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -78,4 +118,51 @@
     </div>
   </div>
 </footer>
+<script>
+function openVideoConsultationWindow() {
+  window.open('/video/consult/', '_blank', 'width=1200,height=800');
+}
+
+// Real-time online doctor count update using WebSocket
+(function() {
+  var ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+  var ws_path = ws_scheme + '://' + window.location.host + '/ws/online_doctor_count/';
+  var socket = new WebSocket(ws_path);
+  socket.onmessage = function(event) {
+    var data = JSON.parse(event.data);
+    document.getElementById('online-doctor-count').textContent = data.count;
+  };
+  socket.onclose = function() {
+    // Optionally, try to reconnect after a delay
+    setTimeout(function() { window.location.reload(); }, 5000);
+  };
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var toggle = document.getElementById('navbarVideoOnlineToggle');
+  var statusText = document.getElementById('navbarVideoOnlineStatus');
+  if (toggle) {
+    toggle.addEventListener('change', function() {
+      fetch('{% url "toggle_video_online" %}', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ online: toggle.checked })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.video_online) {
+          statusText.textContent = 'Online';
+        } else {
+          statusText.textContent = 'Offline';
+        }
+        location.reload();
+      });
+    });
+  }
+});
+</script>
 </html>

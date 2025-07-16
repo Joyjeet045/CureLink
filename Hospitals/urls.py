@@ -19,4 +19,10 @@ urlpatterns=[
   path('lab-tests/', views.lab_tests_page, name='lab_tests'),
   path('appointment/<int:appointment_id>/prescription/', views.add_prescription, name='add_prescription'),
   path('doctor/take-leave/', views.doctor_take_leave, name='doctor_take_leave'),
+  path('toggle_video_online/', views.toggle_video_online, name='toggle_video_online'),
+  path('video/consult/', views.video_consultation, name='video_consultation'),
+  path('video/consult/<str:room_name>/', views.video_consultation, name='video_consultation_room'),
+  path('video/start/<int:doctor_id>/', views.start_video_consultation, name='start_video_consultation'),
+  path('api/online_doctor_count/', views.online_doctor_count, name='online_doctor_count'),
+  path('api/doctor_video_online_state/', views.doctor_video_online_state, name='doctor_video_online_state'),
 ]

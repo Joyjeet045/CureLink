@@ -126,6 +126,11 @@ img.img-fluid {
           <p>Status: <span class="{% if doctor_status == 'Available' %}available{% else %}not-available{% endif %}">{{ doctor_status }}</span></p>
           <p>Mobile: {{ doctor.mobile }}</p>
           <p class="contact-info">Qualifications: {{ doctor.qualifications }}</p>
+          {% if user.is_authenticated and user.id != doctor.user.id and doctor.video_online %}
+            <a href="{% url 'start_video_consultation' doctor.id %}" class="btn btn-danger mt-3">
+              <i class="fas fa-video"></i> Start Video Consultation
+            </a>
+          {% endif %}
       </div>
   </div>
   <div class="container mt-4">

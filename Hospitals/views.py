@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
@@ -19,6 +19,12 @@ from geopy.distance import geodesic
 from django.views.decorators.csrf import csrf_exempt
 from Users.models import UserProfile
 from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
+from django.urls import reverse
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+from .models import Doctor
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -107,17 +113,20 @@ def add_doctor(request):
     last_name = request.POST['last_name']
     mobile=request.POST['mobile']
     profile_pic=request.FILES['profile_pic']
-    #select field->dept,hospital
     department=request.POST['department']
     hospitals=request.POST.getlist('hospitals')
+    # Create a user for the doctor
+    username = f"{first_name.lower()}.{last_name.lower()}"
+    email = request.POST.get('email', f"{username}@example.com")
+    password = User.objects.make_random_password()
+    user = User.objects.create_user(username=username, password=password, email=email, first_name=first_name, last_name=last_name)
+    user.save()
     doctor=Doctor.objects.create(
-      firstname=first_name,
-      lastname=last_name,
+      user=user,
       mobile=mobile,
       profile_pic=profile_pic,
       department=department
     )
-    doctor.save()
     doctor.hospitals.set(hospitals)
     return redirect("/")
   hospitals_list=Hospital.objects.all()
@@ -175,31 +184,45 @@ def update_doctor_status(doctor):
         doctor.status = False  
         doctor.save()
 
-def doctor_profile(request,doctor_id=None):
-  user = request.user
-  if doctor_id is None and user.is_authenticated:
-    if Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).exists():
-      doctor = Doctor.objects.get(firstname=user.first_name, lastname=user.last_name)
+def doctor_profile(request, doctor_id=None):
+    user = request.user
+    if doctor_id is None and user.is_authenticated:
+        if Doctor.objects.filter(user_id=user.id).exists():
+            doctor = Doctor.objects.get(user_id=user.id)
+            reviews = Review.objects.filter(doctor=doctor).order_by('-rating')
+            list_range = range(1, 6)
+            top_review_count = len(reviews) // 2 + 1
+            top_reviews = reviews[:top_review_count]
+            update_doctor_status(doctor)
+            today = date.today()
+            on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
+            doctor_status = 'Unavailable' if on_leave else 'Available'
+            if request.method == 'POST':
+                review_id_to_delete = request.POST.get('review_id_to_delete')
+                if review_id_to_delete:
+                    if Review.objects.filter(pk=review_id_to_delete).exists():
+                        review = get_object_or_404(Review, pk=review_id_to_delete)
+                        review.delete()
+            return render(request, 'Hospital/view_profile.html', {'doctor': doctor, 'top_reviews': top_reviews, 'list': list_range, 'doctor_status': doctor_status})
+        else:
+            return render(request, 'Hospital/view_profile.html', {'doctor': None})
     else:
-      return redirect('home')
-  else:
-    doctor=get_object_or_404(Doctor,id=doctor_id)
-  reviews=Review.objects.filter(doctor=doctor).order_by('-rating')
-  list=range(1,6)
-  top_review_count=len(reviews)//2+1
-  top_reviews=reviews[:top_review_count]
-  update_doctor_status(doctor)
-  # Determine doctor status based on leave
-  today = date.today()
-  on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
-  doctor_status = 'Unavailable' if on_leave else 'Available'
-  if request.method == 'POST':
-        review_id_to_delete = request.POST.get('review_id_to_delete')
-        if review_id_to_delete:
-            if Review.objects.filter(pk=review_id_to_delete).exists():
-                review = get_object_or_404(Review, pk=review_id_to_delete)
-                review.delete()
-  return render(request,'Hospital/view_profile.html',{'doctor':doctor,'top_reviews':top_reviews,'list':list,'doctor_status':doctor_status})
+        doctor = get_object_or_404(Doctor, id=doctor_id)
+        reviews = Review.objects.filter(doctor=doctor).order_by('-rating')
+        list_range = range(1, 6)
+        top_review_count = len(reviews) // 2 + 1
+        top_reviews = reviews[:top_review_count]
+        update_doctor_status(doctor)
+        today = date.today()
+        on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
+        doctor_status = 'Unavailable' if on_leave else 'Available'
+        if request.method == 'POST':
+            review_id_to_delete = request.POST.get('review_id_to_delete')
+            if review_id_to_delete:
+                if Review.objects.filter(pk=review_id_to_delete).exists():
+                    review = get_object_or_404(Review, pk=review_id_to_delete)
+                    review.delete()
+        return render(request, 'Hospital/view_profile.html', {'doctor': doctor, 'top_reviews': top_reviews, 'list': list_range, 'doctor_status': doctor_status})
   
 def is_doctor_available(doctor, date):
     return not DoctorLeave.objects.filter(doctor=doctor, start_date__lte=date, end_date__gte=date).exists()
@@ -281,39 +304,37 @@ def get_available_timings(request):
     return JsonResponse(available_timings, safe=False)
   
 def dashboard(request):
-  user = request.user
-  today = date.today()
-  now = datetime.now()
-  from .models import Doctor
-  is_doctor = Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).exists()
-  doctor_status = None
-  if is_doctor:
-    doctor = Doctor.objects.get(firstname=user.first_name, lastname=user.last_name)
-    # Check if doctor is on leave today
-    on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
-    doctor_status = 'Unavailable' if on_leave else 'Available'
-    upcoming_appointments = Appointment.objects.filter(
-      Q(doctor=doctor, appointment_date=today, time__gt=now.time()) |
-      Q(doctor=doctor, appointment_date__gt=today)
-    )
-    past_appointments = Appointment.objects.filter(doctor=doctor, appointment_date__lt=today)
-    return render(request, 'Hospital/dashboard.html', {
-      'upcoming_appointments': upcoming_appointments,
-      'past_appointments': past_appointments,
-      'is_doctor': True,
-      'doctor_status': doctor_status
-    })
-  else:
-    upcoming_appointments = Appointment.objects.filter(
-      Q(user=user, appointment_date=today, time__gt=now.time()) |
-      Q(user=user, appointment_date__gt=today)
-    )
-    past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
-    return render(request, 'Hospital/dashboard.html', {
-      'upcoming_appointments': upcoming_appointments,
-      'past_appointments': past_appointments,
-      'is_doctor': False
-    })
+    user = request.user
+    today = date.today()
+    now = datetime.now()
+    is_doctor = Doctor.objects.filter(user_id=user.id).exists()
+    doctor_status = None
+    if is_doctor:
+        doctor = Doctor.objects.get(user_id=user.id)
+        on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
+        doctor_status = 'Unavailable' if on_leave else 'Available'
+        upcoming_appointments = Appointment.objects.filter(
+            Q(doctor=doctor, appointment_date=today, time__gt=now.time()) |
+            Q(doctor=doctor, appointment_date__gt=today)
+        )
+        past_appointments = Appointment.objects.filter(doctor=doctor, appointment_date__lt=today)
+        return render(request, 'Hospital/dashboard.html', {
+            'upcoming_appointments': upcoming_appointments,
+            'past_appointments': past_appointments,
+            'is_doctor': True,
+            'doctor_status': doctor_status
+        })
+    else:
+        upcoming_appointments = Appointment.objects.filter(
+            Q(user=user, appointment_date=today, time__gt=now.time()) |
+            Q(user=user, appointment_date__gt=today)
+        )
+        past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
+        return render(request, 'Hospital/dashboard.html', {
+            'upcoming_appointments': upcoming_appointments,
+            'past_appointments': past_appointments,
+            'is_doctor': False
+        })
 
 def cancel_appointment(request,appointment_id):
   try:
@@ -464,10 +485,9 @@ def check_existing_appointments(request):
 @require_POST
 @user_passes_test(lambda u: u.is_authenticated and hasattr(u, 'first_name') and hasattr(u, 'last_name'), login_url='/login/')
 def doctor_take_leave(request):
-    from .models import Doctor
     user = request.user
     # Find doctor by user name (adjust if you have a better relation)
-    doctor = Doctor.objects.filter(firstname=user.first_name, lastname=user.last_name).first()
+    doctor = Doctor.objects.filter(user=user).first()
     if not doctor:
         return redirect('user_dashboard')
     leave_range = request.POST.get('leave_dates', '')
@@ -486,5 +506,56 @@ def doctor_take_leave(request):
     DoctorLeave.objects.create(doctor=doctor, start_date=start_date, end_date=end_date)
     messages.success(request, f'Leave applied from {start_date} to {end_date}.')
     return redirect('user_dashboard')
+
+@require_POST
+@login_required
+def toggle_video_online(request):
+    # Find the doctor for the logged-in user
+    doctor = Doctor.objects.filter(user=request.user).first()
+    if doctor is None:
+        return JsonResponse({'error': 'Doctor not found.'}, status=404)
+    doctor.video_online = not doctor.video_online
+    doctor.save()
+    # Broadcast the new online doctor count
+    channel_layer = get_channel_layer()
+    count = Doctor.objects.filter(video_online=True).count()
+    async_to_sync(channel_layer.group_send)(
+        'online_doctor_count',
+        {
+            'type': 'doctor_count_update',
+            'count': count
+        }
+    )
+    return JsonResponse({'online': doctor.video_online})
+
+@login_required
+def video_consultation(request, room_name=None):
+    return render(request, 'Hospital/video_consultation.html', {'room_name': room_name or 'default'})
+
+@login_required
+def start_video_consultation(request, doctor_id):
+    doctor = get_object_or_404(Doctor, id=doctor_id)
+    # Only allow if doctor is online (optional: add check)
+    video_appt = VideoAppointment.objects.create(
+        doctor=doctor,
+        patient=request.user,
+        status='pending'
+    )
+    room_name = str(video_appt.id)
+    return redirect(reverse('video_consultation_room', kwargs={'room_name': room_name}))
+
+@require_GET
+def online_doctor_count(request):
+    count = Doctor.objects.filter(video_online=True).count()
+    return JsonResponse({'count': count})
+
+@require_GET
+def doctor_video_online_state(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'online': False})
+    doctor = Doctor.objects.filter(user=request.user).first()
+    if doctor is None:
+        return JsonResponse({'online': False})
+    return JsonResponse({'online': doctor.video_online})
 
 

@@ -44,14 +44,12 @@ def register_page(request):
                     hospitals = request.POST.getlist('hospitals')
                     profile_pic = request.FILES.get('profile_pic')
                     doctor = Doctor.objects.create(
-                        firstname=first_name,
-                        lastname=last_name,
+                        user=user,
                         mobile=mobile,
                         department=department,
                         qualifications=qualifications,
                         profile_pic=profile_pic
                     )
-                    doctor.save()
                     doctor.hospitals.set(hospitals)
                     messages.success(request,"Doctor registered successfully!")
                     return redirect('login')

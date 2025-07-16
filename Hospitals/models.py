@@ -44,45 +44,41 @@ class Hospital(models.Model):
     return 3
   
 class Doctor(models.Model):
-  firstname=models.CharField(max_length=30)
-  lastname=models.CharField(max_length=30)
-  profile_pic=models.ImageField(upload_to='profile_pic/DoctorProfilePic/',null=True,blank=True)
-  mobile=models.CharField(max_length=20)
-  department=models.CharField(max_length=30,choices=department_choices,default="Cardiology")
-  status=models.BooleanField(default=True)
-  hospitals=models.ManyToManyField(Hospital,related_name='doctors')
-  qualifications = models.TextField(blank=True, null=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='doctor_profile')
+    profile_pic = models.ImageField(upload_to='profile_pic/DoctorProfilePic/', null=True, blank=True)
+    mobile = models.CharField(max_length=20)
+    department = models.CharField(max_length=30, choices=department_choices, default="Cardiology")
+    status = models.BooleanField(default=True)
+    video_online = models.BooleanField(default=False)
+    hospitals = models.ManyToManyField(Hospital, related_name='doctors')
+    qualifications = models.TextField(blank=True, null=True)
 
-  #getters
-  @property
-  def get_name(self):
-    return self.firstname+" "+self.lastname
-  
-  def get_available_slots(self, hospital, appointment_date, user=None):
-    """Get available time slots with capacity information for a specific date"""
-    day_name = appointment_date.strftime('%A')
-    timings = Timing.objects.filter(
-      doctor=self,
-      hospital=hospital,
-      day_of_week=day_name
-    )
-    
-    available_slots = []
-    for timing in timings:
-      available_capacity = timing.get_available_capacity(appointment_date, user=user)
-      if available_capacity > 0:
-        available_slots.append({
-          'timing': timing,
-          'start_time': timing.start_time,
-          'end_time': timing.end_time,
-          'available_capacity': available_capacity,
-          'max_capacity': timing.max_capacity
-        })
-    
-    return available_slots
-  
-  def __str__(self):
-    return "{} ({})".format(self.firstname,self.department)
+    @property
+    def get_name(self):
+        return f"{self.user.first_name} {self.user.last_name}"
+
+    def get_available_slots(self, hospital, appointment_date, user=None):
+        day_name = appointment_date.strftime('%A')
+        timings = Timing.objects.filter(
+            doctor=self,
+            hospital=hospital,
+            day_of_week=day_name
+        )
+        available_slots = []
+        for timing in timings:
+            available_capacity = timing.get_available_capacity(appointment_date, user=user)
+            if available_capacity > 0:
+                available_slots.append({
+                    'timing': timing,
+                    'start_time': timing.start_time,
+                    'end_time': timing.end_time,
+                    'available_capacity': available_capacity,
+                    'max_capacity': timing.max_capacity
+                })
+        return available_slots
+
+    def __str__(self):
+        return f"{self.get_name} ({self.department})"
 
 class Timing(models.Model):
   doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
@@ -381,4 +377,19 @@ def check_user_double_booking(user, appointment_date, timing_start, timing_end, 
         query = query.exclude(pk=exclude_appointment_id)
     
     return query.exists()
+
+class VideoAppointment(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('active', 'Active'),
+        ('ended', 'Ended'),
+    ]
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='video_appointments')
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_appointments')
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    def __str__(self):
+        return f"VideoAppointment: {self.patient.username} with Dr. {self.doctor.get_name} ({self.status})"
 
