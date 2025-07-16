@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="alert alert-warning text-center">
+    <h4 class="mb-3">Replace Cart?</h4>
+    <p>Your cart contains tests from another hospital.<br>
+    Do you want to replace them with tests from <b>{{ new_hospital.name }}</b>?</p>
+    <form method="post" action="">
+      {% csrf_token %}
+      <input type="hidden" name="confirm_replace" value="yes">
+      <button type="submit" class="btn btn-danger">Yes, Replace Cart</button>
+      <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn btn-secondary ms-2">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %} 

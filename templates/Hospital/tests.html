@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="fw-bold mb-4 text-success">Tests</h2>
+    <a href="{% url 'tests_page' %}" class="btn btn-outline-secondary position-relative">
+      <i class="fas fa-shopping-cart"></i>
+      <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+        {% if request.session.cart and request.session.cart.tests %}
+          {{ request.session.cart.tests|length }}
+        {% else %}
+          0
+        {% endif %}
+      </span>
+    </a>
+  </div>
+  <p class="text-center text-muted">Book tests and diagnostics here.</p>
+  <div class="list-group mt-4">
+    {% for test in test_types %}
+      <div class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <span class="fw-bold">{{ test.name }}</span>
+          <span class="badge bg-info text-dark ms-2">{{ test.get_sample_required_display }}</span>
+        </div>
+        <a href="{% url 'view_hospitals_for_testtype' test.id %}" class="btn btn-outline-primary btn-sm">View Hospitals</a>
+      </div>
+    {% empty %}
+      <div class="text-center text-muted">No tests available.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %} 

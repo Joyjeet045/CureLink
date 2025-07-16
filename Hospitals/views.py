@@ -2,14 +2,14 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core import serializers
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseRedirect
 from django.core.paginator import Paginator
 from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment, TestType, Test
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
@@ -389,8 +389,9 @@ def medicines_page(request):
         'cure_choices': cure_choices,
         'selected_cure': cure_to_filter
     })
-def lab_tests_page(request):
-    return render(request, 'Hospital/lab_tests.html')
+def tests_page(request):
+    test_types = TestType.objects.all()
+    return render(request, 'Hospital/tests.html', {'test_types': test_types})
 
 def add_prescription(request, appointment_id):
     appointment = get_object_or_404(Appointment, id=appointment_id)
@@ -557,5 +558,39 @@ def doctor_video_online_state(request):
     if doctor is None:
         return JsonResponse({'online': False})
     return JsonResponse({'online': doctor.video_online})
+
+def view_hospitals_for_testtype(request, testtype_id):
+    from django.shortcuts import get_object_or_404
+    test_type = get_object_or_404(TestType, id=testtype_id)
+    tests = test_type.hospital_tests.select_related('hospital')
+    return render(request, 'Hospital/hospitals_for_testtype.html', {'test_type': test_type, 'tests': tests})
+
+def add_to_cart(request, test_id):
+    from django.shortcuts import get_object_or_404, redirect
+    test = get_object_or_404(Test, id=test_id)
+    cart = request.session.get('cart', None)
+    if cart:
+        if cart['hospital_id'] != test.hospital.id:
+            if request.POST.get('confirm_replace') == 'yes':
+                cart = {'hospital_id': test.hospital.id, 'tests': [test.id]}
+                messages.success(request, f"Cart replaced with test from {test.hospital.name}.")
+            else:
+                return render(request, 'Hospital/confirm_replace_cart.html', {
+                    'current_hospital': cart['hospital_id'],
+                    'new_hospital': test.hospital,
+                    'test': test
+                })
+        else:
+            if test.id not in cart['tests']:
+                cart['tests'].append(test.id)
+                messages.success(request, f"Test added to cart.")
+            else:
+                messages.info(request, f"Test already in cart.")
+    else:
+        cart = {'hospital_id': test.hospital.id, 'tests': [test.id]}
+        messages.success(request, f"Test added to cart.")
+    request.session['cart'] = cart
+    # Always redirect to the tests page
+    return redirect('tests_page')
 
 

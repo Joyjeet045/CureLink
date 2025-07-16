@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <h2 class="fw-bold mb-4 text-center text-primary">Hospitals offering {{ test_type.name }}</h2>
+  <div class="row justify-content-center">
+    {% for test in tests %}
+      <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow">
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ test.hospital.name }}</h5>
+            <p class="card-text mb-1"><span class="fw-bold">Price:</span> ₹{{ test.price }}</p>
+            <p class="card-text mb-1"><span class="fw-bold">Available:</span> {% if test.available %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
+            {% if test.package_discount %}
+              <p class="card-text mb-1"><span class="fw-bold">Discount:</span> {{ test.package_discount }}% Off</p>
+            {% endif %}
+            {% if test.test_included %}
+              <p class="card-text mb-1"><span class="fw-bold">Includes:</span> {{ test.test_included }}</p>
+            {% endif %}
+            {% if test.pre_test_instructions %}
+              <p class="card-text mb-1"><span class="fw-bold">Instructions:</span> {{ test.pre_test_instructions }}</p>
+            {% endif %}
+            <div class="mt-auto">
+              <form method="post" action="{% url 'add_to_cart' test.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success w-100">Add to Cart</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12 text-center text-muted">No hospitals found for this test.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %} 

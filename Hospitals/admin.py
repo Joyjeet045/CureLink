@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
-from .models import Doctor,Hospital,Timing,Review,Appointment,Prescription,Medicine
+from .models import Doctor,Hospital,Timing,Review,Appointment,Prescription,Medicine,Test,State,MedicineEntry, DoctorLeave, VideoAppointment, TestType
 
 @admin.register(Timing)
 class TimingAdmin(admin.ModelAdmin):
@@ -16,3 +16,9 @@ admin.site.register(Review)
 admin.site.register(Appointment)
 admin.site.register(Prescription)
 admin.site.register(Medicine)
+admin.site.register(Test)
+admin.site.register(State)
+admin.site.register(MedicineEntry)
+admin.site.register(DoctorLeave)
+admin.site.register(VideoAppointment)
+admin.site.register(TestType)

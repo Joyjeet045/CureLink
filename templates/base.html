@@ -91,7 +91,7 @@
           </a>
           {% if not user.is_authenticated or user.profile.role != 'doctor' %}
             <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
-            <a href="{% url 'lab_tests' %}" class="btn btn-outline-success mx-1">LAB TESTS</a>
+            <a href="{% url 'tests_page' %}" class="btn btn-outline-success mx-1">TESTS</a>
           {% endif %}
         </div>
       </div>
