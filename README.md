@@ -1,6 +1,6 @@
 # 🩺 CureLink
 
-**CureLink** is a Django-powered healthcare **superapp** designed to seamlessly connect patients, doctors, hospitals, pharmacies, and diagnostic labs on a unified platform.
+**CureLink** is a Django-powered healthcare **superapp** designed to seamlessly connect patients, doctors, hospitals, and pharmacies on a unified platform.
 
 ---
 
@@ -16,12 +16,9 @@
   - Get the **shortest route to the hospital** via integrated maps after booking
 - **e-Prescriptions**
   - View prescriptions issued by your doctor
-  - Includes recommended medicines and lab tests
+  - Includes recommended medicines
 - **Medicines**
-  - Order Medicines from in-app pharmacy
-- **Lab Tests**
-  - Book diagnostic tests or health packages in **nearby labs (within a 50km radius)**
-  - The system uses a combination of **H3 geospatial indexing** and **geodesic distance calculations** to find and sort the **nearest 10 labs then by price filtering**
+  - Order medicines from the in-app pharmacy
 - **Notifications**
   - Receive **appointment reminders 5 hours in advance via email**
 - **Reviews & Ratings**
@@ -53,22 +50,8 @@
   - Link existing practicing locations (pending admin verification)
 - **Manage Appointments**
 - **Issue e-Prescriptions**
-  - Prescribe medicines and recommend tests directly to patients
+  - Prescribe medicines directly to patients
 - **View Patient History**
-
----
-
-### 🧪 Lab Admin Portal
-
-- **Register Diagnostic Labs**
-- **Manage Lab Orders**
-  - View and track all incoming test bookings
-  - Update test progress across **4 steps**:
-    1. Collection of Sample
-    2. Tests Conducted
-    3. Report Preparation
-    4. Report Sent
-- **Send Test Reports In-App**
 
 ---
 
@@ -80,4 +63,14 @@
 - **Scheduler**: Celery + Redis (for cron reminders)
 - **Maps Integration**: React Leaflet API
 - **Email Notifications**: Django Email Backend
-- **Geospatial Search**: H3 hexagonal indexing + geodesic distance calculation
+
+---
+
+## ▶️ Running Celery
+
+To start Celery for scheduled tasks and background processing:
+
+```bash
+.\redis-server.exe
+celery -A doctors_app beat --loglevel=info
+celery -A doctors_app worker --pool=eventlet -l info
