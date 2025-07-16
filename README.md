@@ -66,11 +66,12 @@
 
 ---
 
-## ▶️ Running Celery
+## ▶️ Running the Application
 
-To start Celery for scheduled tasks and background processing:
+To start the application and Celery for scheduled tasks and background processing:
 
 ```bash
+daphne doctors_app.asgi:application
 .\redis-server.exe
 celery -A doctors_app beat --loglevel=info
 celery -A doctors_app worker --pool=eventlet -l info
