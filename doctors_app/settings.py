@@ -151,3 +151,17 @@ EMAIL_HOST_USER="joyjeetroy3@gmail.com"
 EMAIL_HOST_PASSWORD="yttt dybs vsaf lyfq"
 
 APPEND_SLASH=False
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'send-appointment-reminders-every-1-minute': {
+        'task': 'Hospitals.tasks.send_appointment_reminders',
+        'schedule': crontab(minute='*'),  # every 1 minute
+    },
+}
