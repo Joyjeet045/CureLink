@@ -18,6 +18,53 @@
     margin-top: 10px; 
 }
 
+/* Modern Alert Styling */
+.modern-alert {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 16px 20px;
+    margin: 20px 0;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+}
+
+.modern-alert:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    color: #856404;
+    border-left: 4px solid #ffc107;
+}
+
+.modern-alert i {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.modern-alert strong {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+}
+
 </style>
 <div class="card mx-4 mx-md-5 shadow-5-strong" style="
     background: hsla(0, 0%, 100%, 0.8);
@@ -54,8 +101,29 @@
         <div class="text-center">
             {% if messages %}
             {% for message in messages %}
-            <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'info' in message.tags %}alert-warning{% endif %}" role="alert">
-              {{ message }}
+            <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'error' in message.tags %}alert-danger{% else %}alert-warning{% endif %} modern-alert" role="alert">
+                <div class="d-flex align-items-center">
+                    {% if 'success' in message.tags %}
+                        <i class="fas fa-check-circle me-2"></i>
+                    {% elif 'error' in message.tags %}
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle me-2"></i>
+                    {% endif %}
+                    <div>
+                        <strong>
+                            {% if 'success' in message.tags %}
+                                Success!
+                            {% elif 'error' in message.tags %}
+                                Rescheduling Error
+                            {% else %}
+                                Information
+                            {% endif %}
+                        </strong>
+                        <br>
+                        {{ message }}
+                    </div>
+                </div>
             </div>
             {% endfor %}
             {% endif %}

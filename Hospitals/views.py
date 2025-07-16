@@ -8,6 +8,7 @@ from django.db.models import Avg, Count, Q
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
@@ -219,17 +220,32 @@ def doctor_appointments(request,hospital_id,doctor_id):
     if not is_doctor_available(doctor, appointment_date):
         messages.error(request, 'Doctor is unavailable on the selected date due to leave. Please choose another date.')
         return render(request,'Hospital/book_appointment.html',{'doctor':doctor,'hospital':hospital,'doctor_json': doctor_json,'hospital_json': hospital_json})
-    appointment=Appointment(
-      user=user,
-      doctor=doctor,
-      hospital=hospital,
-      appointment_date=appointment_date,
-      time=time,
-      notes=notes
-    )
-    appointment.save()
-    messages.success(request, 'Appointment booked successfully.')
-    return redirect('/dashboard/me/')
+    
+    # Check capacity before booking
+    try:
+        appointment=Appointment(
+          user=user,
+          doctor=doctor,
+          hospital=hospital,
+          appointment_date=appointment_date,
+          time=time,
+          notes=notes
+        )
+        appointment.full_clean()  # This will trigger the clean method with capacity validation
+        appointment.save()
+        messages.success(request, 'Appointment booked successfully.')
+        return redirect('/dashboard/me/')
+    except ValidationError as e:
+        # Extract the error message properly
+        if hasattr(e, 'message_dict') and '__all__' in e.message_dict:
+            error_message = e.message_dict['__all__'][0]
+        elif hasattr(e, 'message_dict'):
+            error_message = '; '.join([msg[0] if isinstance(msg, list) else str(msg) for msg in e.message_dict.values()])
+        else:
+            error_message = str(e)
+        messages.error(request, error_message)
+        return render(request,'Hospital/book_appointment.html',{'doctor':doctor,'hospital':hospital,'doctor_json': doctor_json,'hospital_json': hospital_json})
+    
   return render(request,'Hospital/book_appointment.html',{'doctor':doctor,'hospital':hospital,'doctor_json': doctor_json,'hospital_json': hospital_json})
 
 def get_available_timings(request):
@@ -239,9 +255,30 @@ def get_available_timings(request):
     doctor=request.GET.get('doctor')
     selected_date=datetime.strptime(selected_date_str,'%a %b %d %Y %H:%M:%S GMT%z (India Standard Time)')
     day_of_week = selected_date.strftime("%A")
-    available_timings = Timing.objects.filter(day_of_week=day_of_week,doctor__id=doctor,hospital__name=hospital).values('start_time', 'end_time')
+    timings = Timing.objects.filter(day_of_week=day_of_week,doctor__id=doctor,hospital__name=hospital)
     
-    return JsonResponse(list(available_timings), safe=False)
+    available_timings = []
+    for timing in timings:
+      available_capacity = timing.get_available_capacity(selected_date.date())
+      # Check if user already has an appointment in this slot
+      already_booked_by_user = Appointment.objects.filter(
+        user=request.user,
+        doctor__id=doctor,
+        hospital__name=hospital,
+        appointment_date=selected_date.date(),
+        time__gte=timing.start_time,
+        time__lt=timing.end_time,
+        status=True
+      ).exists()
+      available_timings.append({
+        'start_time': timing.start_time.strftime('%H:%M:%S'),
+        'end_time': timing.end_time.strftime('%H:%M:%S'),
+        'available_capacity': available_capacity,
+        'max_capacity': timing.max_capacity,
+        'already_booked_by_user': already_booked_by_user
+      })
+    
+    return JsonResponse(available_timings, safe=False)
   
 def dashboard(request):
   user = request.user
@@ -299,9 +336,21 @@ def reschedule_appointment(request, appointment_id):
             new_time = datetime.strptime(new_time_str, '%H:%M:%S').time()
             appointment.appointment_date = new_date
             appointment.time = new_time
-            appointment.save()  
-            messages.success(request, 'Appointment rescheduled successfully.')
-            return redirect('user_dashboard')  
+            try:
+                appointment.full_clean()  # This will trigger capacity validation
+                appointment.save()  
+                messages.success(request, 'Appointment rescheduled successfully.')
+                return redirect('user_dashboard')
+            except ValidationError as e:
+                # Extract the error message properly
+                if hasattr(e, 'message_dict') and '__all__' in e.message_dict:
+                    error_message = e.message_dict['__all__'][0]
+                elif hasattr(e, 'message_dict'):
+                    error_message = '; '.join([msg[0] if isinstance(msg, list) else str(msg) for msg in e.message_dict.values()])
+                else:
+                    error_message = str(e)
+                messages.error(request, error_message)
+                return render(request, 'Hospital/reschedule_form.html', {'appointment': appointment,'doctor_json':doctor_json,'hospital_json':hospital_json})
         else:
             return render(request, 'Hospital/reschedule_form.html', {'appointment': appointment,'doctor_json':doctor_json,'hospital_json':hospital_json})
     except Appointment.DoesNotExist:
@@ -379,6 +428,38 @@ def get_prescription_details(request, appointment_id):
         "doctor_name": appointment.doctor.get_name,
     }
     return JsonResponse(data)
+
+@require_GET
+@user_passes_test(is_authenticated, login_url='/login/')
+def check_existing_appointments(request):
+    """Check for existing appointments on a specific date"""
+    appointment_date_str = request.GET.get('appointment_date')
+    if not appointment_date_str:
+        return JsonResponse({"existing_appointments": []})
+    
+    try:
+        appointment_date = datetime.strptime(appointment_date_str, '%Y-%m-%d').date()
+        existing_appointments = Appointment.objects.filter(
+            user=request.user,
+            appointment_date=appointment_date,
+            status=True
+        ).select_related('doctor', 'hospital')
+        
+        appointments_data = []
+        for appointment in existing_appointments:
+            appointments_data.append({
+                'id': appointment.id,
+                'time': appointment.time.strftime('%H:%M'),
+                'doctor_name': appointment.doctor.get_name,
+                'hospital_name': appointment.hospital.name,
+                'notes': appointment.notes
+            })
+        
+        return JsonResponse({
+            "existing_appointments": appointments_data
+        })
+    except ValueError:
+        return JsonResponse({"existing_appointments": []})
 
 @require_POST
 @user_passes_test(lambda u: u.is_authenticated and hasattr(u, 'first_name') and hasattr(u, 'last_name'), login_url='/login/')

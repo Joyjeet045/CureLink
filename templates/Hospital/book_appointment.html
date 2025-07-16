@@ -18,6 +18,138 @@
     margin-top: 10px; 
 }
 
+.slots-info {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.slots-available {
+    color: #dc3545;
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 1px 2px rgba(220, 53, 69, 0.1);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.slots-low {
+    color: #fd7e14;
+    background: linear-gradient(135deg, #ff8c42, #fd7e14);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
+}
+
+.slots-full {
+    color: #6c757d;
+    font-weight: 500;
+    font-style: italic;
+}
+
+.time-slot-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+    transition: all 0.3s ease;
+}
+
+.time-slot-container:hover {
+    background-color: rgba(220, 53, 69, 0.05);
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.15);
+}
+
+.time-slot-container.selected {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.1), rgba(238, 90, 82, 0.1));
+    border: 2px solid #dc3545;
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+}
+
+.time-slot-text {
+    flex: 1;
+}
+
+.capacity-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 60px;
+    text-align: center;
+}
+
+.capacity-available {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.capacity-low {
+    background: linear-gradient(135deg, #ff8c42, #fd7e14);
+    color: white;
+    box-shadow: 0 2px 4px rgba(253, 126, 20, 0.3);
+}
+
+.capacity-full {
+    background: #6c757d;
+    color: white;
+    opacity: 0.7;
+}
+
+/* Modern Alert Styling */
+.modern-alert {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 16px 20px;
+    margin: 20px 0;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+}
+
+.modern-alert:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    color: #856404;
+    border-left: 4px solid #ffc107;
+}
+
+.modern-alert i {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.modern-alert strong {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: block;
+}
+
 </style>
 <div class="card mx-4 mx-md-5 shadow-5-strong" style="
     background: hsla(0, 0%, 100%, 0.8);
@@ -43,8 +175,9 @@
                     </div>
                     <div class="mb-4">
                       <label for="end_time" class="form-label">Enter Your Preferable Slot*</label>
-                      <select id="end_time" class="form-control" name="end_time" required>
-                          <!-- Available timings will be populated here using JavaScript -->
+                      <div id="time-slots-container">
+                      </div>
+                      <select id="end_time" class="form-control" name="end_time" required style="display: none;">
                       </select>
                   </div>
                     <div class="mb-4">
@@ -58,8 +191,29 @@
         <div class="text-center">
             {% if messages %}
             {% for message in messages %}
-            <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'info' in message.tags %}alert-warning{% endif %}" role="alert">
-              {{message}}
+            <div class="alert {% if 'success' in message.tags %}alert-success{% elif 'error' in message.tags %}alert-danger{% else %}alert-warning{% endif %} modern-alert" role="alert">
+                <div class="d-flex align-items-center">
+                    {% if 'success' in message.tags %}
+                        <i class="fas fa-check-circle me-2"></i>
+                    {% elif 'error' in message.tags %}
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle me-2"></i>
+                    {% endif %}
+                    <div>
+                        <strong>
+                            {% if 'success' in message.tags %}
+                                Success!
+                            {% elif 'error' in message.tags %}
+                                Booking Error
+                            {% else %}
+                                Information
+                            {% endif %}
+                        </strong>
+                        <br>
+                        {{ message }}
+                    </div>
+                </div>
             </div>
             {% endfor %}
             {% endif %}
@@ -69,34 +223,107 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-  $(document).ready(function () {
-      $("#appointment_date").on("change", function () {
+$(document).ready(function () {
+    function fetchSlots() {
         var doctorData = JSON.parse('{{ doctor_json|safe}}');
         var hospitalData = JSON.parse('{{ hospital_json|safe }}');
-        console.log('doctorData:',doctorData[0].pk);
-        console.log('hospitalData:',hospitalData[0].fields.name);
-        var selectedDate = new Date(this.value);
+        var selectedDate = $("#appointment_date").val();
+        if (!selectedDate) return;
+        var selectedDateObj = new Date(selectedDate);
         $.ajax({
-          url:'/get_available_timings/',
-          method:"GET",
-          data:{
-            selected_date:selectedDate,
-            hospital:hospitalData[0].fields.name,
-            doctor:doctorData[0].pk
-          },
-          success: function (data) {
-            // Populate the select input with available timings
-            var select = $("#end_time");
-            select.empty();
-            for (var i = 0; i < data.length; i++) {
-                select.append(new Option(data[i].start_time + " - " + data[i].end_time, data[i].start_time));
+            url:'/get_available_timings/',
+            method:"GET",
+            data:{
+                selected_date:selectedDateObj,
+                hospital:hospitalData[0].fields.name,
+                doctor:doctorData[0].pk
+            },
+            success: function (data) {
+                var container = $("#time-slots-container");
+                var select = $("#end_time");
+                container.empty();
+                select.empty();
+                if (data.length === 0) {
+                    container.html('<div class="alert alert-warning">No available time slots for the selected date.</div>');
+                    return;
+                }
+                for (var i = 0; i < data.length; i++) {
+                    var slot = data[i];
+                    var availableSlots = slot.available_capacity;
+                    var maxCapacity = slot.max_capacity;
+                    var timeRange = slot.start_time + " - " + slot.end_time;
+                    var capacityClass = 'capacity-available';
+                    var slotsText = availableSlots + ' slots left';
+                    var disabledClass = '';
+                    var badgeHtml = '';
+                    if (slot.already_booked_by_user) {
+                        disabledClass = 'slot-disabled';
+                        badgeHtml = '<span class="capacity-badge capacity-full" style="background:#adb5bd; color:#fff;">Already Booked</span>';
+                    } else {
+                        if (availableSlots <= 2) {
+                            capacityClass = 'capacity-low';
+                            slotsText = 'Only ' + availableSlots + ' slots left!';
+                        } else if (availableSlots <= 0) {
+                            capacityClass = 'capacity-full';
+                            slotsText = 'Fully booked';
+                        }
+                        badgeHtml = '<div class="capacity-badge ' + capacityClass + '">' + availableSlots + '/' + maxCapacity + '</div>';
+                    }
+                    var slotHtml = `
+                        <div class="time-slot-container ${disabledClass}" data-time="${slot.start_time}" ${slot.already_booked_by_user ? 'style="pointer-events:none;opacity:0.6;"' : ''}>
+                            <div class="time-slot-text">
+                                <strong>${timeRange}</strong>
+                                <div class="slots-info">
+                                    <span class="slots-available">${slotsText}</span>
+                                </div>
+                            </div>
+                            ${badgeHtml}
+                        </div>
+                    `;
+                    container.append(slotHtml);
+                    if (!slot.already_booked_by_user) {
+                        select.append(new Option(timeRange, slot.start_time));
+                    }
+                }
+                container.off('click').on('click', '.time-slot-container:not(.slot-disabled)', function() {
+                    $('.time-slot-container').removeClass('selected');
+                    $(this).addClass('selected');
+                    var selectedTime = $(this).data('time');
+                    select.val(selectedTime);
+                });
+            },
+            error: function (error) {
+                $("#time-slots-container").html('<div class="alert alert-danger">Error loading time slots. Please try again.</div>');
             }
-        },
-        error: function (error) {
-            console.log("Error fetching timings:", error);
-        }
-        })          
-      });
+        });
+    }
+    $("#appointment_date").on("change", fetchSlots);
+    $("form").on("submit", function(e) {
+        e.preventDefault();
+        var form = $(this);
+        $.ajax({
+            url: form.attr("action"),
+            method: "POST",
+            data: form.serialize(),
+            success: function(response, status, xhr) {
+                $(".modern-alert").remove();
+                $(".card-body").prepend('<div class="alert alert-success modern-alert" role="alert"><div class="d-flex align-items-center"><i class="fas fa-check-circle me-2"></i><div><strong>Success!</strong><br>Appointment booked successfully.</div></div></div>');
+                fetchSlots();
+            },
+            error: function(xhr) {
+                $(".modern-alert").remove();
+                var errorMsg = 'Booking failed. Please try again.';
+                if (xhr.responseText) {
+                    try {
+                        var json = JSON.parse(xhr.responseText);
+                        if (json && json.message) errorMsg = json.message;
+                    } catch (e) {}
+                }
+                $(".card-body").prepend('<div class="alert alert-danger modern-alert" role="alert"><div class="d-flex align-items-center"><i class="fas fa-exclamation-triangle me-2"></i><div><strong>Booking Error</strong><br>' + errorMsg + '</div></div></div>');
+                fetchSlots();
+            }
+        });
     });
+});
 </script>
 {% endblock %}

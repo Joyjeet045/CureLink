@@ -3,6 +3,7 @@ from django.db.models import Avg
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from datetime import date
+from datetime import datetime, timedelta
 
 doctor_departments = [
   "Cardiology",
@@ -57,6 +58,29 @@ class Doctor(models.Model):
   def get_name(self):
     return self.firstname+" "+self.lastname
   
+  def get_available_slots(self, hospital, appointment_date, user=None):
+    """Get available time slots with capacity information for a specific date"""
+    day_name = appointment_date.strftime('%A')
+    timings = Timing.objects.filter(
+      doctor=self,
+      hospital=hospital,
+      day_of_week=day_name
+    )
+    
+    available_slots = []
+    for timing in timings:
+      available_capacity = timing.get_available_capacity(appointment_date, user=user)
+      if available_capacity > 0:
+        available_slots.append({
+          'timing': timing,
+          'start_time': timing.start_time,
+          'end_time': timing.end_time,
+          'available_capacity': available_capacity,
+          'max_capacity': timing.max_capacity
+        })
+    
+    return available_slots
+  
   def __str__(self):
     return "{} ({})".format(self.firstname,self.department)
 
@@ -74,12 +98,66 @@ class Timing(models.Model):
     ])
   start_time = models.TimeField()
   end_time = models.TimeField()
+  max_capacity = models.PositiveIntegerField(default=10, help_text="Maximum number of appointments allowed in this time slot")
+  
   def __str__(self):
     return f"{self.doctor.get_name}'s Timing at {self.hospital.name} on {self.day_of_week} ({self.start_time} - {self.end_time})"
+  
+  def get_available_capacity(self, appointment_date, user=None):
+    """Get the number of available slots for a specific date"""
+    # Get the day of week for the appointment date
+    day_name = appointment_date.strftime('%A')
+    # Check if this timing applies to the appointment date
+    if day_name != self.day_of_week:
+        return 0
+    # Count existing appointments for this doctor, hospital, date, and time slot
+    existing_appointments = Appointment.objects.filter(
+        doctor=self.doctor,
+        hospital=self.hospital,
+        appointment_date=appointment_date,
+        time__gte=self.start_time,
+        time__lt=self.end_time,
+        status=True
+    )
+    existing_count = existing_appointments.count()
+    return max(0, self.max_capacity - existing_count)
+  
+  def is_available(self, appointment_date, user=None):
+    """Check if there are available slots for a specific date"""
+    return self.get_available_capacity(appointment_date, user=user) > 0
+  
+  def check_overlapping_timings(self):
+    """Check if this timing overlaps with other timings for the same doctor, hospital, and day"""
+    overlapping = Timing.objects.filter(
+      doctor=self.doctor,
+      hospital=self.hospital,
+      day_of_week=self.day_of_week
+    ).exclude(pk=self.pk).filter(
+      models.Q(start_time__lt=self.end_time, end_time__gt=self.start_time)
+    )
+    return overlapping.exists()
+  
   def save(self, *args, **kwargs):
+    # Check for overlapping timings before saving
+    if self.pk is None:  # Only check for new timings
+      if self.check_overlapping_timings():
+        raise ValidationError(
+          f"Timing slot overlaps with existing timing for Dr. {self.doctor.get_name} "
+          f"at {self.hospital.name} on {self.day_of_week}. "
+          f"Please choose a different time range."
+        )
+    
     super().save(*args, **kwargs)
     if self.doctor and self.hospital:
         self.doctor.hospitals.add(self.hospital)
+
+  class Meta:
+    constraints = [
+        models.CheckConstraint(
+            check=models.Q(start_time__lt=models.F('end_time')),
+            name='timing_start_before_end'
+        ),
+    ]
 
 def validate_rating(value):
   if value>5 or value<0:
@@ -107,10 +185,69 @@ class Appointment(models.Model):
 
   def __str__(self):
     return f"Appointment with Dr. {self.doctor.get_name} at {self.hospital.name} on {self.appointment_date}"
+  
+  def clean(self):
+    """Validate appointment capacity and prevent double booking"""
+    from django.core.exceptions import ValidationError
+    
+    if self.appointment_date and self.time and self.doctor and self.hospital:
+      day_name = self.appointment_date.strftime('%A')
+      matching_timings = Timing.objects.filter(
+        doctor=self.doctor,
+        hospital=self.hospital,
+        day_of_week=day_name,
+        start_time__lte=self.time,
+        end_time__gt=self.time
+      )
+      
+      if not matching_timings.exists():
+        raise ValidationError("No timing slot found for this doctor, hospital, and time.")
+      
+      timing = min(matching_timings, key=lambda t: time_to_seconds(t.end_time) - time_to_seconds(t.start_time))
+      
+      double_booking_query = Appointment.objects.filter(
+        user=self.user,
+        appointment_date=self.appointment_date,
+        time__gte=timing.start_time,
+        time__lt=timing.end_time,
+        status=True
+      )
+      
+      if self.pk:
+        double_booking_query = double_booking_query.exclude(pk=self.pk)
+      
+      if double_booking_query.exists():
+        existing_appointment = double_booking_query.first()
+        raise ValidationError(
+          f"You already have an appointment on {self.appointment_date} at {existing_appointment.time.strftime('%H:%M')} "
+          f"with Dr. {existing_appointment.doctor.get_name} at {existing_appointment.hospital.name}. "
+          "Please choose a different time slot or date."
+        )
+      
+      available_capacity = timing.get_available_capacity(self.appointment_date)
+      
+      if not self.pk:
+        if available_capacity <= 0:
+          raise ValidationError(f"No available slots for this time. Maximum capacity ({timing.max_capacity}) has been reached.")
+      else:
+        existing_count = Appointment.objects.filter(
+          doctor=self.doctor,
+          hospital=self.hospital,
+          appointment_date=self.appointment_date,
+          time__gte=timing.start_time,
+          time__lt=timing.end_time,
+          status=True
+        ).exclude(pk=self.pk).count()
+        
+        if existing_count >= timing.max_capacity:
+          raise ValidationError(f"No available slots for this time. Maximum capacity ({timing.max_capacity}) has been reached.")
+  
   def save(self, *args, **kwargs):
     if self.appointment_date<date.today():
-      self.status = False  
+      self.status = False
+    self.clean() 
     super(Appointment, self).save(*args, **kwargs)
+  
   class Meta:
     ordering = ['appointment_date', 'time']
 
@@ -163,4 +300,85 @@ class DoctorLeave(models.Model):
 
     def __str__(self):
         return f"{str(self.doctor)} leave from {self.start_date} to {self.end_date}"
+
+
+# Utility functions for capacity management
+def get_doctor_schedule_with_capacity(doctor, hospital, date, user=None):
+    """
+    Get doctor's schedule for a specific date with capacity information
+    """
+    day_name = date.strftime('%A')
+    timings = Timing.objects.filter(
+        doctor=doctor,
+        hospital=hospital,
+        day_of_week=day_name
+    )
+    
+    schedule = []
+    for timing in timings:
+        available_capacity = timing.get_available_capacity(date, user=user)
+        schedule.append({
+            'timing': timing,
+            'start_time': timing.start_time,
+            'end_time': timing.end_time,
+            'available_capacity': available_capacity,
+            'max_capacity': timing.max_capacity,
+            'is_available': available_capacity > 0
+        })
+    
+    return schedule
+
+
+def time_to_seconds(t):
+    return t.hour * 3600 + t.minute * 60 + t.second
+
+
+def check_appointment_availability(doctor, hospital, appointment_date, appointment_time, user=None):
+    """
+    Check if an appointment slot is available
+    """
+    day_name = appointment_date.strftime('%A')
+    
+    matching_timings = Timing.objects.filter(
+        doctor=doctor,
+        hospital=hospital,
+        day_of_week=day_name,
+        start_time__lte=appointment_time,
+        end_time__gt=appointment_time
+    )
+    
+    if not matching_timings.exists():
+        return False
+    
+    timing = min(matching_timings, key=lambda t: time_to_seconds(t.end_time) - time_to_seconds(t.start_time))
+    return timing.get_available_capacity(appointment_date, user=user) > 0
+
+
+def get_user_existing_appointments(user, appointment_date):
+    """
+    Get user's existing appointments for a specific date
+    """
+    return Appointment.objects.filter(
+        user=user,
+        appointment_date=appointment_date,
+        status=True
+    ).select_related('doctor', 'hospital')
+
+
+def check_user_double_booking(user, appointment_date, timing_start, timing_end, exclude_appointment_id=None):
+    """
+    Check if user has any existing appointments in the given time range
+    """
+    query = Appointment.objects.filter(
+        user=user,
+        appointment_date=appointment_date,
+        time__gte=timing_start,
+        time__lt=timing_end,
+        status=True
+    )
+    
+    if exclude_appointment_id:
+        query = query.exclude(pk=exclude_appointment_id)
+    
+    return query.exists()
 
