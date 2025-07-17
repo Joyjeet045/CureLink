@@ -26,77 +26,87 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.0.0/mdb.min.css" rel="stylesheet" />
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/6.0.0/mdb.min.js"></script>
-  <nav class="navbar navbar-expand-lg navbar-light bg-light">
-    <div class="container-fluid">
-      <a href="{% url 'home' %}" class="navbar-brand">CureLink</a>
-      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
-            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <i class="fas fa-bars"></i>
-        </button>
-      <div class="collapse navbar-collapse d-flex justify-content-between" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <a class="nav-link">Welcome <b>{{ user }}</b></a>                        
-          </li>
-          {% if user.is_authenticated %}
-            {% if user.profile.role == 'seller' %}
-              <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
+  {% if user.is_authenticated and user.profile.role == 'hospital_admin' %}
+    <!-- Empty navbar for hospital admin -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <span class="navbar-brand">Hospital Admin Panel</span>
+      </div>
+    </nav>
+  {% else %}
+    <!-- Normal navbar for other users -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <a href="{% url 'home' %}" class="navbar-brand">CureLink</a>
+        <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
+              aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+              <i class="fas fa-bars"></i>
+          </button>
+        <div class="collapse navbar-collapse d-flex justify-content-between" id="navbarNav">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link">Welcome <b>{{ user }}</b></a>                        
+            </li>
+            {% if user.is_authenticated %}
+              {% if user.profile.role == 'seller' %}
+                <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
+              {% else %}
+                <li class="nav-item"><a class="nav-link" href="{% url 'view_doctors' %}">Doctors</a></li>
+                <li class="nav-item"><a href="{% url 'user_dashboard' %}" class="nav-link">My Dashboard</a></li>
+                <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
+              {% endif %}
             {% else %}
-              <li class="nav-item"><a class="nav-link" href="{% url 'view_doctors' %}">Doctors</a></li>
-              <li class="nav-item"><a href="{% url 'user_dashboard' %}" class="nav-link">My Dashboard</a></li>
-              <li class="nav-item"><a href="{% url 'logout' %}" class="nav-link">Logout</a></li>
+              <li class="nav-item"><a href="{% url 'login' %}" class="nav-link">Login</a></li>
             {% endif %}
-          {% else %}
-            <li class="nav-item"><a href="{% url 'login' %}" class="nav-link">Login</a></li>
-          {% endif %}
-        </ul>
-        <div class="d-flex align-items-center ms-auto">
-          {% if user.is_authenticated and user.profile.role == 'doctor' %}
-            <button id="online-toggle-btn" class="btn btn-outline-success mx-1">Go Online</button>
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-              var btn = document.getElementById('online-toggle-btn');
-              fetch('/api/doctor_video_online_state/')
-                .then(response => response.json())
-                .then(data => {
-                  var isOnline = data.online;
-                  btn.textContent = isOnline ? 'Go Offline' : 'Go Online';
-                  btn.classList.toggle('btn-outline-success', isOnline);
-                  btn.classList.toggle('btn-outline-secondary', !isOnline);
-                  btn.onclick = function() {
-                    fetch('{% url "toggle_video_online" %}', {
-                      method: 'POST',
-                      headers: {
-                        'X-CSRFToken': '{{ csrf_token }}',
-                        'Content-Type': 'application/json',
-                      },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                      isOnline = data.online;
-                      btn.textContent = isOnline ? 'Go Offline' : 'Go Online';
-                      btn.classList.toggle('btn-outline-success', isOnline);
-                      btn.classList.toggle('btn-outline-secondary', !isOnline);
-                    });
-                  };
-                });
-            });
-            </script>
-          {% endif %}
-          <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative" onclick="openVideoConsultationWindow()">
-            VIDEO CONSULTATION
-            <span id="online-doctor-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-              0
-            </span>
-          </a>
-          {% if not user.is_authenticated or user.profile.role != 'doctor' %}
-            <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
-            <a href="{% url 'tests_page' %}" class="btn btn-outline-success mx-1">TESTS</a>
-          {% endif %}
+          </ul>
+          <div class="d-flex align-items-center ms-auto">
+            {% if user.is_authenticated and user.profile.role == 'doctor' %}
+              <button id="online-toggle-btn" class="btn btn-outline-success mx-1">Go Online</button>
+              <script>
+              document.addEventListener('DOMContentLoaded', function() {
+                var btn = document.getElementById('online-toggle-btn');
+                fetch('/api/doctor_video_online_state/')
+                  .then(response => response.json())
+                  .then(data => {
+                    var isOnline = data.online;
+                    btn.textContent = isOnline ? 'Go Offline' : 'Go Online';
+                    btn.classList.toggle('btn-outline-success', isOnline);
+                    btn.classList.toggle('btn-outline-secondary', !isOnline);
+                    btn.onclick = function() {
+                      fetch('{% url "toggle_video_online" %}', {
+                        method: 'POST',
+                        headers: {
+                          'X-CSRFToken': '{{ csrf_token }}',
+                          'Content-Type': 'application/json',
+                        },
+                      })
+                      .then(response => response.json())
+                      .then(data => {
+                        isOnline = data.online;
+                        btn.textContent = isOnline ? 'Go Offline' : 'Go Online';
+                        btn.classList.toggle('btn-outline-success', isOnline);
+                        btn.classList.toggle('btn-outline-secondary', !isOnline);
+                      });
+                    };
+                  });
+              });
+              </script>
+            {% endif %}
+            <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative" onclick="openVideoConsultationWindow()">
+              VIDEO CONSULTATION
+              <span id="online-doctor-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                0
+              </span>
+            </a>
+            {% if not user.is_authenticated or user.profile.role != 'doctor' %}
+              <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
+              <a href="{% url 'tests_page' %}" class="btn btn-outline-success mx-1">TESTS</a>
+            {% endif %}
+          </div>
         </div>
       </div>
-    </div>
-  </nav>
+    </nav>
+  {% endif %}
   <br>
   <div class="container">
     {% block content %}

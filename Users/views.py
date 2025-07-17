@@ -78,21 +78,25 @@ def register_page(request):
         return  render(request,'Users/register.html',{'hospital_ch': hospitals_list, 'depts': depts})
 
 def login_page(request):
-  if request.user.is_authenticated:
-    messages.info(request,"You are already logged in!!")
-    return redirect('home')
-  if request.method=='POST':
-    username=request.POST['username']
-    password=request.POST['password']
-    user=auth.authenticate(username=username,password=password)
-    if user is not None:
-      auth.login(request,user)
-      return redirect('home')
+    if request.user.is_authenticated:
+        messages.info(request,"You are already logged in!!")
+        return redirect('home')
+    if request.method=='POST':
+        username=request.POST['username']
+        password=request.POST['password']
+        user=auth.authenticate(username=username,password=password)
+        if user is not None:
+            auth.login(request,user)
+            # Hospital admin redirect
+            if hasattr(user, 'profile') and user.profile.role == 'hospital_admin':
+                from django.urls import reverse
+                return redirect(reverse('hospital_admin_home'))
+            return redirect('home')
+        else:
+            messages.info(request,'Invalid credentials')
+            return redirect('login')
     else:
-      messages.info(request, 'Invalid username or password')
-      return redirect('login')
-  else:
-    return  render(request,'Users/login.html')
+        return render(request,'Users/login.html')
 def logout_page(request):
   auth.logout(request)
   messages.success(request,"Successfully logged out")

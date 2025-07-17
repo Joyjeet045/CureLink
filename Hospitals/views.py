@@ -24,6 +24,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from Users.models import HospitalAdminMapping
 
 from .models import Doctor
 
@@ -1138,5 +1139,21 @@ def update_test_order_status(request, order_id):
             messages.success(request, f"Test Order #{order_id} status updated to {new_status}.")
     
     return redirect('user_dashboard')
+
+def hospital_admin_home(request):
+    user = request.user
+    if not user.is_authenticated or not hasattr(user, 'profile') or user.profile.role != 'hospital_admin':
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("You are not authorized to view this page.")
+    mapping = HospitalAdminMapping.objects.filter(user=user).first()
+    if not mapping:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("No hospital mapping found for this admin.")
+    hospital = mapping.hospital
+    tests = hospital.tests.all()
+    return render(request, 'Hospital/hospital_admin_home.html', {
+        'hospital': hospital,
+        'tests': tests,
+    })
 
 

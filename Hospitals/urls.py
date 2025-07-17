@@ -34,4 +34,5 @@ urlpatterns=[
   path('test-cart-checkout/', views.test_cart_checkout, name='test_cart_checkout'),
   path('process-test-payment/', views.process_test_payment, name='process_test_payment'),
   path('update-test-order-status/<int:order_id>/', views.update_test_order_status, name='update_test_order_status'),
+  path('hospital-admin-home/', views.hospital_admin_home, name='hospital_admin_home'),
 ]
