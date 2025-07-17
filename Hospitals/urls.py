@@ -27,4 +27,5 @@ urlpatterns=[
   path('api/doctor_video_online_state/', views.doctor_video_online_state, name='doctor_video_online_state'),
   path('tests/<int:testtype_id>/hospitals/', views.view_hospitals_for_testtype, name='view_hospitals_for_testtype'),
   path('add-to-cart/<int:test_id>/', views.add_to_cart, name='add_to_cart'),
+  path('add-medicine-to-cart/<int:medicine_id>/', views.add_medicine_to_cart, name='add_medicine_to_cart'),
 ]

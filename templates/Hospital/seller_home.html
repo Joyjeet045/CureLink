@@ -2,17 +2,26 @@
 {% block content %}
 <div class="container mt-5">
   <h2 class="mb-4">Add or Update Medicine</h2>
-  {% if success %}
-    <div class="alert alert-success">Medicine added/updated successfully!</div>
+  
+  <!-- Display messages -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
   {% endif %}
+  
   <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
+    <input type="hidden" id="medicine-data" value="{{ medicine_data_json|escapejs }}">
     <div class="mb-3">
       <label for="medicine_id" class="form-label">Select Existing Medicine</label>
       <select class="form-select" id="medicine_id" name="medicine_id" style="width: 100%">
         <option value="">-- Add New Medicine --</option>
         {% for med in all_medicines %}
-          <option value="{{ med.id }}">{{ med.name }}</option>
+          <option value="{{ med.id }}" {% if selected_medicine_id == med.id|stringformat:"s" %}selected{% endif %}>{{ med.name }}</option>
         {% endfor %}
       </select>
     </div>
@@ -23,38 +32,38 @@
       <div id="new-medicine-fields">
         <div class="mb-3">
           <label for="new_medicine_name" class="form-label">New Medicine Name</label>
-          <input type="text" class="form-control" id="new_medicine_name" name="new_medicine_name" required>
+          <input type="text" class="form-control" id="new_medicine_name" name="new_medicine_name" value="{{ form_data.new_medicine_name|default:'' }}" required>
         </div>
         <div class="mb-3">
           <label for="category" class="form-label">Category</label>
           <select class="form-select" id="category" name="category" required>
             {% for value, label in cure_choices %}
-              <option value="{{ value }}">{{ label }}</option>
+              <option value="{{ value }}" {% if form_data.category == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
         <div class="mb-3">
           <label for="description" class="form-label">Description</label>
-          <textarea class="form-control" id="description" name="description"></textarea>
+          <textarea class="form-control" id="description" name="description">{{ form_data.description|default:'' }}</textarea>
         </div>
         <div class="mb-3">
           <label for="picture" class="form-label">Medicine Picture</label>
           <input type="file" class="form-control" id="picture" name="picture" accept="image/*">
         </div>
         <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="requires_prescription" name="requires_prescription">
+          <input class="form-check-input" type="checkbox" id="requires_prescription" name="requires_prescription" {% if form_data.requires_prescription %}checked{% endif %}>
           <label class="form-check-label" for="requires_prescription">Requires Prescription</label>
         </div>
         <div class="mb-3">
           <label for="price" class="form-label">Price</label>
-          <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" required>
+          <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" value="{{ form_data.price|default:'' }}" required>
         </div>
       </div>
     </template>
     
     <div class="mb-3">
       <label for="stock" class="form-label">Stock</label>
-      <input type="number" class="form-control" id="stock" name="stock" min="1" required>
+      <input type="number" class="form-control" id="stock" name="stock" min="1" value="{{ form_data.stock|default:'' }}" required>
     </div>
     <button type="submit" class="btn btn-primary">Submit</button>
   </form>
@@ -69,6 +78,17 @@
     var newFieldsContainer = document.getElementById('new-medicine-fields-container');
     var newFieldsTemplate = document.getElementById('new-medicine-fields-template');
     var stockField = document.getElementById('stock');
+    
+    // Store medicine data for populating fields
+    var medicineDataInput = document.getElementById('medicine-data');
+    var medicineData = {};
+    if (medicineDataInput && medicineDataInput.value) {
+      try {
+        medicineData = JSON.parse(medicineDataInput.value);
+      } catch (e) {
+        console.error('Error parsing medicine data:', e);
+      }
+    }
 
     function showNewFields() {
       // Only show if fields don't already exist
@@ -85,32 +105,130 @@
       }
     }
 
-    function toggleFields() {
-      if (medicineSelect.value === "" || medicineSelect.value === null) {
-        // No medicine selected - show new medicine fields
-        showNewFields();
-      } else {
-        // Medicine selected - remove new medicine fields, keep only stock
-        removeNewFields();
+    function populateExistingMedicineFields(medicineId) {
+      if (medicineData[medicineId]) {
+        var data = medicineData[medicineId];
+        
+        // Populate stock field with current stock
+        stockField.value = data.stock;
+        
+        // Show current medicine info
+        var infoDiv = document.getElementById('existing-medicine-info');
+        if (!infoDiv) {
+          infoDiv = document.createElement('div');
+          infoDiv.id = 'existing-medicine-info';
+          infoDiv.className = 'alert alert-info mb-3';
+          newFieldsContainer.appendChild(infoDiv);
+        }
+        
+        infoDiv.innerHTML = `
+          <h6>Updating: ${data.name}</h6>
+          <p><strong>Current Price:</strong> ₹${data.price}</p>
+          <p><strong>Current Stock:</strong> ${data.stock}</p>
+          <p><strong>Category:</strong> ${data.category}</p>
+          <p><strong>Description:</strong> ${data.description}</p>
+          <p><strong>Requires Prescription:</strong> ${data.requires_prescription ? 'Yes' : 'No'}</p>
+          <hr>
+          <p class="mb-0"><em>Only stock can be updated for existing medicines. Enter the new stock quantity.</em></p>
+        `;
       }
-      
-      // Stock field is always enabled
-      stockField.disabled = false;
-      stockField.removeAttribute('readonly');
     }
 
-    // Listen for changes in the select dropdown
-    medicineSelect.addEventListener('change', toggleFields);
-    
-    // Initialize the form on page load
-    toggleFields();
+    function clearExistingMedicineInfo() {
+      var infoDiv = document.getElementById('existing-medicine-info');
+      if (infoDiv) {
+        infoDiv.remove();
+      }
+    }
 
-    // Initialize Select2
+    function enableAllFields() {
+      // Enable stock field
+      stockField.disabled = false;
+      stockField.removeAttribute('readonly');
+      stockField.classList.remove('form-control-disabled');
+      
+      // Enable all new medicine fields
+      var newMedicineFields = document.getElementById('new-medicine-fields');
+      if (newMedicineFields) {
+        var inputs = newMedicineFields.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(input) {
+          input.disabled = false;
+          input.removeAttribute('readonly');
+          input.classList.remove('form-control-disabled');
+        });
+      }
+    }
+
+    function disableFieldsExceptStock() {
+      // Keep stock field enabled
+      stockField.disabled = false;
+      stockField.removeAttribute('readonly');
+      stockField.classList.remove('form-control-disabled');
+      
+      // Disable all new medicine fields
+      var newMedicineFields = document.getElementById('new-medicine-fields');
+      if (newMedicineFields) {
+        var inputs = newMedicineFields.querySelectorAll('input, select, textarea');
+        inputs.forEach(function(input) {
+          input.disabled = true;
+          input.setAttribute('readonly', 'readonly');
+          input.classList.add('form-control-disabled');
+        });
+      }
+    }
+
+    function toggleFields() {
+      console.log('toggleFields called, selected value:', medicineSelect.value);
+      
+      if (!medicineSelect.value || medicineSelect.value === "") {
+        // No medicine selected - show new medicine fields and enable all fields
+        console.log('Showing new medicine fields');
+        showNewFields();
+        clearExistingMedicineInfo();
+        enableAllFields();
+      } else {
+        // Medicine selected - remove new medicine fields, show existing medicine info
+        console.log('Showing existing medicine info for ID:', medicineSelect.value);
+        removeNewFields();
+        populateExistingMedicineFields(medicineSelect.value);
+        disableFieldsExceptStock();
+      }
+    }
+
+    // Initialize Select2 first
     $(medicineSelect).select2({
       placeholder: '-- Add New Medicine --',
       allowClear: true,
       width: 'resolve'
     });
+
+    // Listen for Select2 change events
+    $(medicineSelect).on('select2:select', function(e) {
+      console.log('Select2 select event:', e.params.data);
+      setTimeout(toggleFields, 100); // Small delay to ensure DOM is updated
+    });
+
+    $(medicineSelect).on('select2:clear', function(e) {
+      console.log('Select2 clear event');
+      setTimeout(toggleFields, 100);
+    });
+
+    // Also listen for native change events as backup
+    medicineSelect.addEventListener('change', function() {
+      console.log('Native change event');
+      setTimeout(toggleFields, 100);
+    });
+    
+    // Initialize the form on page load
+    setTimeout(toggleFields, 200);
   });
 </script>
+
+<style>
+  .form-control-disabled {
+    background-color: #e9ecef !important;
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+</style>
 {% endblock %}

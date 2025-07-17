@@ -53,26 +53,99 @@ def home_page(request):
             price = request.POST.get('price', 0)
             picture = request.FILES.get('picture')
             category = request.POST.get('category', 'Body Pain')
-            if new_medicine_name:
-                # Add a new medicine
-                medicine = Medicine.objects.create(
-                    name=new_medicine_name,
-                    description=description,
-                    requires_prescription=requires_prescription,
-                    seller=user,
-                    stock=stock,
-                    price=price,
-                    picture=picture,
-                    cure_to=category
-                )
-            elif medicine_id:
-                medicine = Medicine.objects.get(id=medicine_id, seller=user)
-                medicine.stock += int(stock)
-                medicine.price = price
-                medicine.save()
-            return render(request, 'Hospital/seller_home.html', {'success': True, 'medicines': Medicine.objects.filter(seller=user), 'cure_choices': Medicine.CURE_CHOICES})
+            
+            try:
+                if new_medicine_name:
+                    # Add a new medicine
+                    medicine = Medicine.objects.create(
+                        name=new_medicine_name,
+                        description=description,
+                        requires_prescription=requires_prescription,
+                        seller=user,
+                        stock=stock,
+                        price=price,
+                        picture=picture,
+                        cure_to=category
+                    )
+                    messages.success(request, f'Medicine "{new_medicine_name}" added successfully!')
+                elif medicine_id:
+                    # Update existing medicine
+                    medicine = Medicine.objects.get(id=medicine_id, seller=user)
+                    medicine.stock += int(stock)
+                    medicine.price = price
+                    medicine.save()
+                    messages.success(request, f'Stock updated for "{medicine.name}" successfully!')
+                else:
+                    messages.error(request, 'Please select an existing medicine or enter a new medicine name.')
+                    all_medicines = Medicine.objects.filter(seller=user)
+                    
+                    # Prepare medicine data for JavaScript
+                    medicine_data = {}
+                    for med in all_medicines:
+                        medicine_data[str(med.id)] = {
+                            'name': med.name,
+                            'description': med.description,
+                            'category': med.cure_to,
+                            'price': str(med.price),
+                            'requires_prescription': med.requires_prescription,
+                            'stock': str(med.stock)
+                        }
+                    
+                    return render(request, 'Hospital/seller_home.html', {
+                        'all_medicines': all_medicines, 
+                        'cure_choices': Medicine.CURE_CHOICES,
+                        'form_data': request.POST,
+                        'selected_medicine_id': medicine_id,
+                        'medicine_data_json': medicine_data
+                    })
+                
+                # Redirect to prevent form resubmission
+                return redirect('home')
+                
+            except Exception as e:
+                messages.error(request, f'Error: {str(e)}')
+                all_medicines = Medicine.objects.filter(seller=user)
+                
+                # Prepare medicine data for JavaScript
+                medicine_data = {}
+                for med in all_medicines:
+                    medicine_data[str(med.id)] = {
+                        'name': med.name,
+                        'description': med.description,
+                        'category': med.cure_to,
+                        'price': str(med.price),
+                        'requires_prescription': med.requires_prescription,
+                        'stock': str(med.stock)
+                    }
+                
+                return render(request, 'Hospital/seller_home.html', {
+                    'all_medicines': all_medicines, 
+                    'cure_choices': Medicine.CURE_CHOICES,
+                    'form_data': request.POST,
+                    'selected_medicine_id': medicine_id,
+                    'medicine_data_json': medicine_data
+                })
+        
+        # GET request - show form
         all_medicines = Medicine.objects.filter(seller=user)
-        return render(request, 'Hospital/seller_home.html', {'all_medicines': all_medicines, 'cure_choices': Medicine.CURE_CHOICES})
+        
+        # Prepare medicine data for JavaScript
+        medicine_data = {}
+        for med in all_medicines:
+            medicine_data[str(med.id)] = {
+                'name': med.name,
+                'description': med.description,
+                'category': med.cure_to,
+                'price': str(med.price),
+                'requires_prescription': med.requires_prescription,
+                'stock': str(med.stock)
+            }
+        
+        return render(request, 'Hospital/seller_home.html', {
+            'all_medicines': all_medicines, 
+            'cure_choices': Medicine.CURE_CHOICES,
+            'medicine_data_json': medicine_data
+        })
 
     states = State.objects.all()
     state_filter = request.GET.get('state')
@@ -656,5 +729,48 @@ def add_to_cart(request, test_id):
     request.session['cart'] = cart
     # Always redirect to the tests page
     return redirect('tests_page')
+
+def add_medicine_to_cart(request, medicine_id):
+    from django.shortcuts import get_object_or_404, redirect
+    medicine = get_object_or_404(Medicine, id=medicine_id)
+    quantity = int(request.POST.get('quantity', 1))
+    
+    # Validate quantity
+    if quantity <= 0:
+        messages.error(request, "Quantity must be greater than 0.")
+        return redirect('medicines')
+    
+    if quantity > medicine.stock:
+        messages.error(request, f"Only {medicine.stock} items available in stock.")
+        return redirect('medicines')
+    
+    # Get or initialize medicine cart
+    medicine_cart = request.session.get('medicine_cart', {})
+    
+    # Check if medicine already in cart
+    if str(medicine_id) in medicine_cart:
+        # Update quantity if medicine already exists
+        current_quantity = medicine_cart[str(medicine_id)]['quantity']
+        new_quantity = current_quantity + quantity
+        
+        if new_quantity > medicine.stock:
+            messages.error(request, f"Cannot add {quantity} more items. Total quantity would exceed available stock ({medicine.stock}).")
+            return redirect('medicines')
+        
+        medicine_cart[str(medicine_id)]['quantity'] = new_quantity
+        messages.success(request, f"Updated quantity for {medicine.name} in cart.")
+    else:
+        # Add new medicine to cart
+        medicine_cart[str(medicine_id)] = {
+          'name': medicine.name,
+          'price': float(medicine.price),
+          'quantity': quantity,
+          'seller_id': medicine.seller.id,
+          'requires_prescription': medicine.requires_prescription
+        }
+        messages.success(request, f"{quantity} x {medicine.name} added to cart.")
+    
+    request.session['medicine_cart'] = medicine_cart
+    return redirect('medicines')
 
 
