@@ -182,9 +182,17 @@ img.img-fluid {
   <p class="no-doctors-message">No top reviews available.</p>
   {% endif %}
 
+  {% if has_consulted %}
   <div class="container mt-4">
-    <button class="btn btn-primary"><a href="{% url 'add_review' doctor.id %}" style="color: #ccc;">Give your own feedback</a></button>
-</div>
+    <button class="btn btn-primary">
+      <a href="{% url 'add_review' doctor.id %}" style="color: #ccc;">Give your own feedback</a>
+    </button>
+  </div>
+  {% else %}
+  <div class="container mt-4">
+    <p class="text-muted text-center">You can only give feedback for doctors you have previously consulted with.</p>
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}

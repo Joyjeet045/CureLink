@@ -160,6 +160,18 @@ def view_all_doctors(request,hospital_id):
 
 def add_review(request,doctor_id):
   doctor=get_object_or_404(Doctor,id=doctor_id)
+  
+  # Check if user has previously consulted with this doctor
+  has_consulted = Appointment.objects.filter(
+    user=request.user,
+    doctor=doctor,
+    status=False  # Past appointments (status=False means completed/cancelled appointments)
+  ).exists()
+  
+  if not has_consulted:
+    messages.error(request, "You can only give feedback for doctors you have previously consulted with.")
+    return redirect('doctor_profile',doctor.id)
+  
   if request.method=='POST':
     rating=request.POST.get('rating')
     comment = request.POST.get('comment')
@@ -197,13 +209,27 @@ def doctor_profile(request, doctor_id=None):
             today = date.today()
             on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
             doctor_status = 'Unavailable' if on_leave else 'Available'
+            
+            # Check if user has previously consulted with this doctor
+            has_consulted = Appointment.objects.filter(
+                user=user,
+                doctor=doctor,
+                status=False  # Past appointments
+            ).exists()
+            
             if request.method == 'POST':
                 review_id_to_delete = request.POST.get('review_id_to_delete')
                 if review_id_to_delete:
                     if Review.objects.filter(pk=review_id_to_delete).exists():
                         review = get_object_or_404(Review, pk=review_id_to_delete)
                         review.delete()
-            return render(request, 'Hospital/view_profile.html', {'doctor': doctor, 'top_reviews': top_reviews, 'list': list_range, 'doctor_status': doctor_status})
+            return render(request, 'Hospital/view_profile.html', {
+                'doctor': doctor, 
+                'top_reviews': top_reviews, 
+                'list': list_range, 
+                'doctor_status': doctor_status,
+                'has_consulted': has_consulted
+            })
         else:
             return render(request, 'Hospital/view_profile.html', {'doctor': None})
     else:
@@ -216,13 +242,27 @@ def doctor_profile(request, doctor_id=None):
         today = date.today()
         on_leave = DoctorLeave.objects.filter(doctor=doctor, start_date__lte=today, end_date__gte=today).exists()
         doctor_status = 'Unavailable' if on_leave else 'Available'
+        
+        # Check if user has previously consulted with this doctor
+        has_consulted = Appointment.objects.filter(
+            user=user,
+            doctor=doctor,
+            status=False  # Past appointments
+        ).exists()
+        
         if request.method == 'POST':
             review_id_to_delete = request.POST.get('review_id_to_delete')
             if review_id_to_delete:
                 if Review.objects.filter(pk=review_id_to_delete).exists():
                     review = get_object_or_404(Review, pk=review_id_to_delete)
                     review.delete()
-        return render(request, 'Hospital/view_profile.html', {'doctor': doctor, 'top_reviews': top_reviews, 'list': list_range, 'doctor_status': doctor_status})
+        return render(request, 'Hospital/view_profile.html', {
+            'doctor': doctor, 
+            'top_reviews': top_reviews, 
+            'list': list_range, 
+            'doctor_status': doctor_status,
+            'has_consulted': has_consulted
+        })
   
 def is_doctor_available(doctor, date):
     return not DoctorLeave.objects.filter(doctor=doctor, start_date__lte=date, end_date__gte=date).exists()
@@ -283,8 +323,10 @@ def get_available_timings(request):
     available_timings = []
     for timing in timings:
       available_capacity = timing.get_available_capacity(selected_date.date())
+      max_capacity = timing.max_capacity
+      
       # Check if user already has an appointment in this slot
-      already_booked_by_user = Appointment.objects.filter(
+      user_existing_appointment = Appointment.objects.filter(
         user=request.user,
         doctor__id=doctor,
         hospital__name=hospital,
@@ -292,13 +334,35 @@ def get_available_timings(request):
         time__gte=timing.start_time,
         time__lt=timing.end_time,
         status=True
+      ).first()
+      
+      # Check if user has any appointment with this doctor on the same day
+      user_same_day_appointment = Appointment.objects.filter(
+        user=request.user,
+        doctor__id=doctor,
+        appointment_date=selected_date.date(),
+        status=True
       ).exists()
+      
+      # Determine slot status
+      slot_status = 'available'
+      if user_existing_appointment:
+        slot_status = 'already_booked'
+      elif available_capacity <= 0:
+        slot_status = 'fully_booked'
+      elif user_same_day_appointment:
+        slot_status = 'same_day_booking'
+      
       available_timings.append({
         'start_time': timing.start_time.strftime('%H:%M:%S'),
         'end_time': timing.end_time.strftime('%H:%M:%S'),
         'available_capacity': available_capacity,
-        'max_capacity': timing.max_capacity,
-        'already_booked_by_user': already_booked_by_user
+        'max_capacity': max_capacity,
+        'remaining_slots': available_capacity,
+        'slot_status': slot_status,
+        'already_booked_by_user': user_existing_appointment is not None,
+        'user_same_day_appointment': user_same_day_appointment,
+        'time_range_display': f"{timing.start_time.strftime('%H:%M')} - {timing.end_time.strftime('%H:%M')}"
       })
     
     return JsonResponse(available_timings, safe=False)
@@ -562,7 +626,7 @@ def doctor_video_online_state(request):
 def view_hospitals_for_testtype(request, testtype_id):
     from django.shortcuts import get_object_or_404
     test_type = get_object_or_404(TestType, id=testtype_id)
-    tests = test_type.hospital_tests.select_related('hospital')
+    tests = test_type.hospital_tests.select_related('hospital').filter(available=True)
     return render(request, 'Hospital/hospitals_for_testtype.html', {'test_type': test_type, 'tests': tests})
 
 def add_to_cart(request, test_id):
