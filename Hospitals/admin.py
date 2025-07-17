@@ -3,7 +3,7 @@ from django import forms
 from django.contrib.admin.sites import AlreadyRegistered, NotRegistered
 
 # Register your models here.
-from .models import Doctor,Hospital,Timing,Review,Appointment,Prescription,Medicine,Test,State,MedicineEntry, DoctorLeave, VideoAppointment, TestType, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem
+from .models import Doctor,Hospital,Timing,Review,Appointment,Prescription,Medicine,Test,State,MedicineEntry, DoctorLeave, VideoAppointment, TestType, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem, DoctorHospitalRequest
 
 @admin.register(Timing)
 class TimingAdmin(admin.ModelAdmin):
@@ -85,6 +85,7 @@ admin.site.register(State)
 admin.site.register(MedicineEntry)
 admin.site.register(DoctorLeave)
 admin.site.register(VideoAppointment)
+admin.site.register(DoctorHospitalRequest)
 try:
     admin.site.unregister(TestType)
 except NotRegistered:

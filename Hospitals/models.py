@@ -539,3 +539,13 @@ class TestReport(models.Model):
     def __str__(self):
         return f"Report for Order #{self.order.id}"
 
+
+class DoctorHospitalRequest(models.Model):
+    doctor = models.ForeignKey('Doctor', on_delete=models.CASCADE)
+    hospital = models.ForeignKey('Hospital', on_delete=models.CASCADE)
+    is_approved = models.BooleanField(default=False)
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.doctor} request for {self.hospital} (approved: {self.is_approved})"
+

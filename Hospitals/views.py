@@ -27,14 +27,8 @@ from django.urls import reverse
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from Users.models import HospitalAdminMapping
-
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from .models import DoctorHospitalRequest
 from django.contrib.auth.decorators import login_required
-from django.urls import reverse
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-from Users.models import HospitalAdminMapping
 
 from django import forms
 
@@ -212,34 +206,6 @@ def home_page(request):
     shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
     top_doctors = Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
     return render(request, 'Hospital/home.html', {"hospitals": hospitals, "states": states, "list": list, 'nearest_hospitals': nearest_hospitals, 'doctors': shuffled_doctors, 'top_doctors': top_doctors})
-
-@transaction.atomic
-@user_passes_test(is_admin,login_url="login")
-def add_doctor(request):
-  if request.method=='POST':
-    first_name = request.POST['first_name']
-    last_name = request.POST['last_name']
-    mobile=request.POST['mobile']
-    profile_pic=request.FILES['profile_pic']
-    department=request.POST['department']
-    hospitals=request.POST.getlist('hospitals')
-    # Create a user for the doctor
-    username = f"{first_name.lower()}.{last_name.lower()}"
-    email = request.POST.get('email', f"{username}@example.com")
-    password = User.objects.make_random_password()
-    user = User.objects.create_user(username=username, password=password, email=email, first_name=first_name, last_name=last_name)
-    user.save()
-    doctor=Doctor.objects.create(
-      user=user,
-      mobile=mobile,
-      profile_pic=profile_pic,
-      department=department
-    )
-    doctor.hospitals.set(hospitals)
-    return redirect("/")
-  hospitals_list=Hospital.objects.all()
-  state=State.objects.all()
-  return render(request,'Hospital/create_doctor.html',{'hospital_ch':hospitals_list,'state_ch':state,'depts':doctor_departments})
 
 def view_doctors(request):
   doctor_categories = [
@@ -1223,10 +1189,13 @@ def hospital_admin_home(request):
             test.included_list = []
     # Fetch booked test orders for this hospital
     booked_orders = hospital.test_orders.filter(status='booked').select_related('user').prefetch_related('items__test')
+    # Fetch pending doctor requests for this hospital
+    pending_requests = DoctorHospitalRequest.objects.filter(hospital=hospital, is_approved=False).select_related('doctor')
     return render(request, 'Hospital/hospital_admin_home.html', {
         'hospital': hospital,
         'tests': tests,
         'booked_orders': booked_orders,
+        'pending_requests': pending_requests,
     })
 
 def add_test_for_hospital(request):
@@ -1264,5 +1233,17 @@ def add_test_for_hospital(request):
         'form': form,
         'hospital': hospital,
     })
+
+@login_required
+def approve_doctor_request(request, request_id):
+    req = get_object_or_404(DoctorHospitalRequest, id=request_id, is_approved=False)
+    # Only allow if this admin manages the hospital
+    if not HospitalAdminMapping.objects.filter(user=request.user, hospital=req.hospital).exists():
+        return HttpResponseForbidden('You are not authorized to approve this request.')
+    req.is_approved = True
+    req.save()
+    req.doctor.hospitals.add(req.hospital)
+    messages.success(request, f'Doctor {req.doctor.get_name} approved for {req.hospital.name}.')
+    return redirect('hospital_admin_home')
 
 

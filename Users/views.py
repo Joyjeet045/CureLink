@@ -3,7 +3,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.models import User, auth
 from django.contrib import messages
 from .models import AdminKey, UserProfile
-from Hospitals.models import Hospital, doctor_departments, Doctor
+from Hospitals.models import Hospital, doctor_departments, Doctor,DoctorHospitalRequest
 
 def register_page(request):
     if request.user.is_authenticated:
@@ -50,8 +50,11 @@ def register_page(request):
                         qualifications=qualifications,
                         profile_pic=profile_pic
                     )
-                    doctor.hospitals.set(hospitals)
-                    messages.success(request,"Doctor registered successfully!")
+                    # doctor.hospitals.set(hospitals)  # Do NOT assign hospitals directly
+                    for hospital_id in hospitals:
+                        hospital = Hospital.objects.get(id=hospital_id)
+                        DoctorHospitalRequest.objects.create(doctor=doctor, hospital=hospital)
+                    messages.success(request,"Doctor registered successfully! Pending hospital admin approval.")
                     return redirect('login')
                 elif role == 'seller':
                     user = User.objects.create_user(username=username, password=password1, email=email, first_name=first_name, last_name=last_name)
