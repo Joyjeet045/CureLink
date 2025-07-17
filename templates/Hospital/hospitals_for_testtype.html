@@ -1,35 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container mt-5">
-  <h2 class="fw-bold mb-4 text-center text-primary">Hospitals offering {{ test_type.name }}</h2>
-  <div class="row justify-content-center">
-    {% for test in tests %}
-      <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card h-100 shadow">
-          <div class="card-body d-flex flex-column">
-            <h5 class="card-title">{{ test.hospital.name }}</h5>
-            <p class="card-text mb-1"><span class="fw-bold">Price:</span> ₹{{ test.price }}</p>
-            {% if test.package_discount %}
-              <p class="card-text mb-1"><span class="fw-bold">Discount:</span> {{ test.package_discount }}% Off</p>
-            {% endif %}
-            {% if test.test_included %}
-              <p class="card-text mb-1"><span class="fw-bold">Includes:</span> {{ test.test_included }}</p>
-            {% endif %}
-            {% if test.pre_test_instructions %}
-              <p class="card-text mb-1"><span class="fw-bold">Instructions:</span> {{ test.pre_test_instructions }}</p>
-            {% endif %}
-            <div class="mt-auto">
-              <form method="post" action="{% url 'add_to_cart' test.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-success w-100">Add to Cart</button>
-              </form>
+  <h2 class="fw-bold mb-4 text-success">Hospitals for {{ test_type.name }}</h2>
+
+  {% if need_location %}
+    <div class="alert alert-info text-center">
+      <strong>To show nearby hospitals, we need your location.</strong><br>
+      <button id="get-location-btn" class="btn btn-primary mt-3">Allow Location Access</button>
+    </div>
+    <script>
+      document.getElementById('get-location-btn').onclick = function() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const url = new URL(window.location.href);
+            url.searchParams.set('user_lat', lat);
+            url.searchParams.set('user_lng', lng);
+            window.location.href = url.toString();
+          }, function() {
+            alert('Location access denied. Cannot show nearby hospitals.');
+          });
+        } else {
+          alert('Geolocation is not supported by your browser.');
+        }
+      };
+    </script>
+  {% else %}
+    <div class="d-flex justify-content-end mb-3">
+      <form method="get" class="d-flex align-items-center gap-2">
+        <input type="hidden" name="user_lat" value="{{ request.GET.user_lat }}">
+        <input type="hidden" name="user_lng" value="{{ request.GET.user_lng }}">
+        <label for="sort" class="me-2">Sort by:</label>
+        <select name="sort" id="sort" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+          <option value="distance" {% if sort_by == 'distance' %}selected{% endif %}>Distance</option>
+          <option value="price" {% if sort_by == 'price' %}selected{% endif %}>Price</option>
+        </select>
+      </form>
+    </div>
+    {% if tests %}
+      <div class="list-group">
+        {% for item in tests %}
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <span class="fw-bold">{{ item.hospital.name }}</span>
+              <span class="badge bg-info text-dark ms-2">{{ item.hospital.location }}</span>
+              <span class="badge bg-secondary ms-2">{{ item.distance }} km</span>
+            </div>
+            <div>
+              <span class="fw-bold text-success">₹{{ item.price }}</span>
+              <a href="{% url 'add_to_cart' item.test.id %}" class="btn btn-outline-primary btn-sm ms-3">Add to Cart</a>
             </div>
           </div>
-        </div>
+        {% endfor %}
       </div>
-    {% empty %}
-      <div class="col-12 text-center text-muted">No hospitals found for this test.</div>
-    {% endfor %}
-  </div>
+    {% else %}
+      <div class="alert alert-warning text-center mt-4">No hospitals found within 50km for this test.</div>
+    {% endif %}
+  {% endif %}
 </div>
 {% endblock %} 

@@ -67,7 +67,7 @@
         <div class="card-body py-5 px-md-5">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="fw-bold mb-4 text-center text-primary">Medicines</h2>
-            <a href="{% url 'medicines' %}" class="btn btn-outline-secondary position-relative">
+            <a href="{% url 'medicine_cart_checkout' %}" class="btn btn-outline-secondary position-relative">
               <i class="fas fa-shopping-cart"></i>
               <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                 {% if request.session.medicine_cart %}

@@ -9,13 +9,14 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment, TestType, Test
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment, TestType, Test, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem
+import heapq
+from geopy.distance import geodesic
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
 from django.core.exceptions import PermissionDenied
 
-from geopy.distance import geodesic
 from django.views.decorators.csrf import csrf_exempt
 from Users.models import UserProfile
 from django.views.decorators.http import require_GET, require_POST
@@ -178,6 +179,7 @@ def home_page(request):
     shuffled_doctors = Doctor.objects.filter(department__in=departments).order_by('?')[:5]
     top_doctors = Doctor.objects.annotate(avg_rating=Avg("reviews__rating")).annotate(review_count=Count("reviews")).filter(avg_rating__gte=4).order_by('-avg_rating')
     return render(request, 'Hospital/home.html', {"hospitals": hospitals, "states": states, "list": list, 'nearest_hospitals': nearest_hospitals, 'doctors': shuffled_doctors, 'top_doctors': top_doctors})
+
 @transaction.atomic
 @user_passes_test(is_admin,login_url="login")
 def add_doctor(request):
@@ -467,9 +469,17 @@ def dashboard(request):
             Q(user=user, appointment_date__gt=today)
         )
         past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
+        # Get medicine orders for the user
+        medicine_orders = MedicineOrder.objects.filter(user=user).order_by('-order_date')
+        # Get test orders for the user, separated into upcoming and past
+        upcoming_test_orders = TestOrder.objects.filter(user=user, test_date__gte=today).order_by('test_date', 'test_time')
+        past_test_orders = TestOrder.objects.filter(user=user, test_date__lt=today).order_by('-test_date', '-test_time')
         return render(request, 'Hospital/dashboard.html', {
             'upcoming_appointments': upcoming_appointments,
             'past_appointments': past_appointments,
+            'medicine_orders': medicine_orders,
+            'upcoming_test_orders': upcoming_test_orders,
+            'past_test_orders': past_test_orders,
             'is_doctor': False
         })
 
@@ -700,8 +710,52 @@ def view_hospitals_for_testtype(request, testtype_id):
     from django.shortcuts import get_object_or_404
     test_type = get_object_or_404(TestType, id=testtype_id)
     tests = test_type.hospital_tests.select_related('hospital').filter(available=True)
-    return render(request, 'Hospital/hospitals_for_testtype.html', {'test_type': test_type, 'tests': tests})
 
+    user_lat = request.session.get('user_lat') or request.GET.get('user_lat')
+    user_lng = request.session.get('user_lng') or request.GET.get('user_lng')
+    if not user_lat or not user_lng:
+        return render(request, 'Hospital/hospitals_for_testtype.html', {
+            'test_type': test_type,
+            'tests': [],
+            'need_location': True
+        })
+    try:
+        user_lat = float(user_lat)
+        user_lng = float(user_lng)
+    except Exception:
+        return render(request, 'Hospital/hospitals_for_testtype.html', {
+            'test_type': test_type,
+            'tests': [],
+            'need_location': True
+        })
+
+    hospital_test_list = []
+    for test in tests:
+        hospital = test.hospital
+        if hospital.latitude is not None and hospital.longitude is not None:
+            distance_km = geodesic((user_lat, user_lng), (hospital.latitude, hospital.longitude)).km
+            if distance_km <= 50:
+                hospital_test_list.append({
+                    'test': test,
+                    'hospital': hospital,
+                    'price': test.price,
+                    'distance': round(distance_km, 2)
+                })
+
+    hospital_test_list = heapq.nsmallest(10, hospital_test_list, key=lambda x: x['distance'])
+
+    sort_by = request.GET.get('sort', 'distance')
+    if sort_by == 'price':
+        hospital_test_list.sort(key=lambda x: x['price'])
+    else:
+        hospital_test_list.sort(key=lambda x: x['distance'])
+
+    return render(request, 'Hospital/hospitals_for_testtype.html', {
+        'test_type': test_type,
+        'tests': hospital_test_list,
+        'need_location': False,
+        'sort_by': sort_by
+    })
 def add_to_cart(request, test_id):
     from django.shortcuts import get_object_or_404, redirect
     test = get_object_or_404(Test, id=test_id)
@@ -772,5 +826,317 @@ def add_medicine_to_cart(request, medicine_id):
     
     request.session['medicine_cart'] = medicine_cart
     return redirect('medicines')
+
+def medicine_cart_checkout(request):
+    """Display medicine cart checkout page"""
+    medicine_cart = request.session.get('medicine_cart', {})
+    
+    if not medicine_cart:
+        messages.warning(request, "Your cart is empty.")
+        return redirect('medicines')
+    
+    # Get medicine details for cart items
+    cart_items = []
+    total_amount = 0
+    
+    for medicine_id, item_data in medicine_cart.items():
+        try:
+            medicine = Medicine.objects.get(id=medicine_id)
+            item_total = item_data['price'] * item_data['quantity']
+            total_amount += item_total
+            
+            cart_items.append({
+                'medicine': medicine,
+                'quantity': item_data['quantity'],
+                'price': item_data['price'],
+                'total': item_total,
+                'requires_prescription': item_data['requires_prescription']
+            })
+        except Medicine.DoesNotExist:
+            # Remove invalid medicine from cart
+            del medicine_cart[medicine_id]
+            continue
+    
+    # Update session cart (remove invalid items)
+    request.session['medicine_cart'] = medicine_cart
+    
+    # Calculate expected delivery date (3-5 business days)
+    from datetime import date, timedelta
+    delivery_date = date.today() + timedelta(days=4)  # 4 days from now
+    
+    # Get user's delivery address and pincode
+    user_address = request.user.profile.address if hasattr(request.user, 'profile') else "123 Main Street, Apartment 4B, City Center, New Delhi"
+    user_pincode = request.user.profile.pincode if hasattr(request.user, 'profile') else "110001"
+    
+    context = {
+        'cart_items': cart_items,
+        'total_amount': total_amount,
+        'expected_delivery_date': delivery_date,
+        'delivery_address': user_address,
+        'delivery_pincode': user_pincode,
+    }
+    
+    return render(request, 'Hospital/medicine_checkout.html', context)
+
+def process_medicine_payment(request):
+    """Process medicine order payment and create order (restored to original logic)"""
+    if request.method != 'POST':
+        return redirect('medicine_cart_checkout')
+    
+    medicine_cart = request.session.get('medicine_cart', {})
+    
+    if not medicine_cart:
+        messages.error(request, "Your cart is empty.")
+        return redirect('medicines')
+    
+    # Get delivery address and pincode from form
+    delivery_address = request.POST.get('delivery_address', '')
+    delivery_pincode = request.POST.get('delivery_pincode', '')
+    if not delivery_address:
+        messages.error(request, "Please provide a valid delivery address.")
+        return redirect('medicine_cart_checkout')
+    
+    if not delivery_pincode:
+        messages.error(request, "Please provide a valid pincode.")
+        return redirect('medicine_cart_checkout')
+    
+    try:
+        with transaction.atomic():
+            # Calculate total amount
+            total_amount = 0
+            cart_items = []
+            
+            for medicine_id, item_data in medicine_cart.items():
+                medicine = Medicine.objects.get(id=medicine_id)
+                item_total = item_data['price'] * item_data['quantity']
+                total_amount += item_total
+                
+                cart_items.append({
+                    'medicine': medicine,
+                    'quantity': item_data['quantity'],
+                    'price': item_data['price'],
+                    'total': item_total
+                })
+            
+            # Calculate expected delivery date
+            from datetime import date, timedelta
+            delivery_date = date.today() + timedelta(days=4)
+            
+            # Create medicine order
+            order = MedicineOrder.objects.create(
+                user=request.user,
+                expected_delivery_date=delivery_date,
+                delivery_address=delivery_address,
+                delivery_pincode=delivery_pincode,
+                total_amount=total_amount,
+                payment_status=True  # Mark as paid
+            )
+            
+            # Create order items and update stock
+            for item in cart_items:
+                MedicineOrderItem.objects.create(
+                    order=order,
+                    medicine=item['medicine'],
+                    quantity=item['quantity'],
+                    price_per_unit=item['price'],
+                    total_price=item['total']
+                )
+                
+                # Update medicine stock
+                item['medicine'].stock -= item['quantity']
+                item['medicine'].save()
+            
+            # Clear cart
+            request.session['medicine_cart'] = {}
+            
+            messages.success(request, f"Order placed successfully! Order #: {order.id}")
+            return redirect('user_dashboard')
+            
+    except Exception as e:
+        messages.error(request, f"Error processing order: {str(e)}")
+        return redirect('medicine_cart_checkout')
+
+def update_order_status(request, order_id):
+    """Update order status (for admin/seller use)"""
+    if not request.user.is_staff:
+        messages.error(request, "You don't have permission to update order status.")
+        return redirect('user_dashboard')
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in dict(MedicineOrder.STATUS_CHOICES):
+            order = get_object_or_404(MedicineOrder, id=order_id)
+            order.status = new_status
+            order.save()
+            messages.success(request, f"Order #{order_id} status updated to {new_status}.")
+    
+    return redirect('user_dashboard')
+
+def test_cart_checkout(request):
+    """Display test cart checkout page with date and slot selection"""
+    cart = request.session.get('cart', {})
+    
+    if not cart or 'tests' not in cart or not cart['tests']:
+        messages.warning(request, "Your test cart is empty.")
+        return redirect('tests_page')
+    
+    try:
+        hospital = Hospital.objects.get(id=cart['hospital_id'])
+    except Hospital.DoesNotExist:
+        messages.error(request, "Selected hospital not found.")
+        request.session['cart'] = {}
+        return redirect('tests_page')
+    
+    # Get test details for cart items
+    cart_items = []
+    total_amount = 0
+    all_allowed_slots = None
+    slot_label_map = dict(TestType.SLOT_CHOICES)
+    slot_conflicts = []
+    
+    for test_id in cart['tests']:
+        try:
+            test = Test.objects.get(id=test_id, hospital=hospital, available=True)
+            total_amount += test.price
+            cart_items.append({'test': test, 'price': test.price})
+            allowed_slots = set(test.test_type.get_allowed_slots())
+            if all_allowed_slots is None:
+                all_allowed_slots = allowed_slots
+            else:
+                all_allowed_slots = all_allowed_slots & allowed_slots
+            if not allowed_slots:
+                slot_conflicts.append(f"{test.test_type.name}: All slots allowed")
+            else:
+                slot_conflicts.append(f"{test.test_type.name}: {', '.join([slot_label_map[s] for s in allowed_slots])}")
+        except Test.DoesNotExist:
+            cart['tests'].remove(test_id)
+            continue
+    request.session['cart'] = cart
+    if not cart_items:
+        messages.warning(request, "No valid tests in your cart.")
+        return redirect('tests_page')
+    # If no intersection, show error and list allowed slots for each test
+    if not all_allowed_slots:
+        messages.error(request, "No common time slot is available for all selected tests. Please review your selection.\n" + '\n'.join(slot_conflicts))
+        return redirect('tests_page')
+    # Only show slots in the intersection
+    time_slots = [(slot, slot_label_map[slot]) for slot in all_allowed_slots]
+    # Get available dates (next 30 days, excluding Sundays)
+    from datetime import date, timedelta
+    available_dates = []
+    current_date = date.today()
+    for i in range(1, 31):
+        check_date = current_date + timedelta(days=i)
+        if check_date.weekday() != 6:
+            available_dates.append(check_date)
+    context = {
+        'cart_items': cart_items,
+        'total_amount': total_amount,
+        'hospital': hospital,
+        'available_dates': available_dates,
+        'time_slots': time_slots,
+    }
+    return render(request, 'Hospital/test_checkout.html', context)
+
+
+def process_test_payment(request):
+    """Process test order payment and create order"""
+    if request.method != 'POST':
+        return redirect('test_cart_checkout')
+    cart = request.session.get('cart', {})
+    if not cart or 'tests' not in cart or not cart['tests']:
+        messages.error(request, "Your test cart is empty.")
+        return redirect('tests_page')
+    test_date_str = request.POST.get('test_date', '')
+    test_time_str = request.POST.get('test_time', '')
+    notes = request.POST.get('notes', '')
+    if not test_date_str or not test_time_str:
+        messages.error(request, "Please select a date and time for your test.")
+        return redirect('test_cart_checkout')
+    try:
+        test_date = datetime.strptime(test_date_str, '%Y-%m-%d').date()
+        test_time = datetime.strptime(test_time_str, '%H:%M').time()
+    except ValueError:
+        messages.error(request, "Invalid date or time format.")
+        return redirect('test_cart_checkout')
+    current_datetime = datetime.now()
+    test_datetime = datetime.combine(test_date, test_time)
+    if test_datetime <= current_datetime:
+        messages.error(request, "Cannot book tests for past dates or times.")
+        return redirect('test_cart_checkout')
+    # Validate slot intersection again
+    try:
+        hospital = Hospital.objects.get(id=cart['hospital_id'])
+    except Hospital.DoesNotExist:
+        messages.error(request, "Selected hospital not found.")
+        return redirect('tests_page')
+    slot_label_map = dict(TestType.SLOT_CHOICES)
+    selected_slot = None
+    for slot, label in TestType.SLOT_CHOICES:
+        if slot.startswith(test_time.strftime('%H:%M')):
+            selected_slot = slot
+            break
+    if not selected_slot:
+        messages.error(request, "Selected time does not match any valid slot.")
+        return redirect('test_cart_checkout')
+    all_allowed_slots = None
+    slot_conflicts = []
+    cart_items = []
+    total_amount = 0
+    for test_id in cart['tests']:
+        test = Test.objects.get(id=test_id, hospital=hospital, available=True)
+        allowed_slots = set(test.test_type.get_allowed_slots())
+        if all_allowed_slots is None:
+            all_allowed_slots = allowed_slots
+        else:
+            all_allowed_slots = all_allowed_slots & allowed_slots
+        cart_items.append(test)
+        if not allowed_slots:
+            slot_conflicts.append(f"{test.test_type.name}: All slots allowed")
+        else:
+            slot_conflicts.append(f"{test.test_type.name}: {', '.join([slot_label_map[s] for s in allowed_slots])}")
+        total_amount += test.price
+    if not all_allowed_slots or selected_slot not in all_allowed_slots:
+        messages.error(request, "The selected time slot is not allowed for all selected tests. Please review your selection.\n" + '\n'.join(slot_conflicts))
+        return redirect('test_cart_checkout')
+    try:
+        with transaction.atomic():
+            order = TestOrder.objects.create(
+                user=request.user,
+                hospital=hospital,
+                test_date=test_date,
+                test_time=test_time,
+                total_amount=total_amount,
+                payment_status=True,
+                notes=notes
+            )
+            for test in cart_items:
+                TestOrderItem.objects.create(
+                    order=order,
+                    test=test,
+                    price=test.price
+                )
+            request.session['cart'] = {}
+            messages.success(request, f"Test order placed successfully! Order #: {order.id}")
+            return redirect('user_dashboard')
+    except Exception as e:
+        messages.error(request, f"Error processing test order: {str(e)}")
+        return redirect('test_cart_checkout')
+
+def update_test_order_status(request, order_id):
+    """Update test order status (for admin use)"""
+    if not request.user.is_staff:
+        messages.error(request, "You don't have permission to update test order status.")
+        return redirect('user_dashboard')
+    
+    if request.method == 'POST':
+        new_status = request.POST.get('status')
+        if new_status in dict(TestOrder.STATUS_CHOICES):
+            order = get_object_or_404(TestOrder, id=order_id)
+            order.status = new_status
+            order.save()
+            messages.success(request, f"Test Order #{order_id} status updated to {new_status}.")
+    
+    return redirect('user_dashboard')
 
 

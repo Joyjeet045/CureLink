@@ -307,6 +307,186 @@ input:checked + .slider:before {
                     <p class="no-doctors-message">You haven't consulted our doctors before</p>
                   {% endif %}
                 {% endif %}
+                
+                <!-- Medicine Orders (only for regular users) -->
+                {% if not is_doctor and medicine_orders %}
+                <h3 class="mb-4 text-center">Your Medicine Orders</h3>
+                {% for order in medicine_orders %}
+                <div class="appointment" style="border-left: 4px solid #28a745;">
+                  <div class="row">
+                    <div class="col-md-8">
+                      <p><strong>Order #{{ order.id }}</strong> - {{ order.order_date|date:"F j, Y" }}</p>
+                      <p><strong>Expected Delivery:</strong> {{ order.expected_delivery_date|date:"F j, Y" }}</p>
+                      <p><strong>Delivery Address:</strong> {{ order.delivery_address }}</p>
+                      <p><strong>Pincode:</strong> {{ order.delivery_pincode }}</p>
+                      <p><strong>Total Amount:</strong> ₹{{ order.total_amount }}</p>
+                      
+                      <!-- Status Progress Bar -->
+                      <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <span class="fw-bold">Order Status:</span>
+                          <span class="badge {% if order.status == 'ordered' %}bg-primary{% elif order.status == 'processing' %}bg-warning{% elif order.status == 'shipped' %}bg-info{% else %}bg-success{% endif %}">
+                            {{ order.get_status_display|title }}
+                          </span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                          <div class="progress-bar bg-success" role="progressbar" style="width: {{ order.get_status_progress }}%" aria-valuenow="{{ order.get_status_progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                          <small class="text-muted">Ordered</small>
+                          <small class="text-muted">Processing</small>
+                          <small class="text-muted">Shipped</small>
+                          <small class="text-muted">Delivered</small>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <h6 class="mb-2">Order Items:</h6>
+                      {% for item in order.items.all %}
+                      <div class="small mb-1">
+                        <span class="fw-bold">{{ item.quantity }}x</span> {{ item.medicine.name }}
+                        <br><span class="text-muted">₹{{ item.price_per_unit }} each</span>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+                {% elif not is_doctor %}
+                <h3 class="mb-4 text-center">Your Medicine Orders</h3>
+                <p class="no-doctors-message">You haven't placed any medicine orders yet.</p>
+                
+                <!-- Lab Test Orders (Upcoming & Past) -->
+                <h3 class="mb-4 text-center">Upcoming Lab Tests</h3>
+                {% if upcoming_test_orders %}
+                  {% for order in upcoming_test_orders %}
+                  <div class="appointment" style="border-left: 4px solid #17a2b8;">
+                    <div class="row">
+                      <div class="col-md-8">
+                        <p><strong>Test Order #{{ order.id }}</strong> - {{ order.order_date|date:"F j, Y" }}</p>
+                        <p><strong>Test Date:</strong> {{ order.test_date|date:"F j, Y" }}</p>
+                        <p><strong>Test Time:</strong> {{ order.test_time|time:"g:i A" }}</p>
+                        <p><strong>Hospital:</strong> {{ order.hospital.name }}</p>
+                        <p><strong>Total Amount:</strong> ₹{{ order.total_amount }}</p>
+                        {% if order.notes %}
+                          <p><strong>Notes:</strong> {{ order.notes }}</p>
+                        {% endif %}
+                        <!-- Status Progress Bar -->
+                        <div class="mt-3">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Test Status:</span>
+                            <span class="badge {% if order.status == 'booked' %}bg-primary{% elif order.status == 'sample_collected' %}bg-warning{% elif order.status == 'processing' %}bg-info{% else %}bg-success{% endif %}">
+                              {{ order.get_status_display|title }}
+                            </span>
+                          </div>
+                          <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ order.get_status_progress }}%" aria-valuenow="{{ order.get_status_progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                          <div class="d-flex justify-content-between mt-1">
+                            <small class="text-muted">Booked</small>
+                            <small class="text-muted">Sample Collected</small>
+                            <small class="text-muted">Processing</small>
+                            <small class="text-muted">Completed</small>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <h6 class="mb-2">Test Items:</h6>
+                        {% for item in order.items.all %}
+                        <div class="small mb-1">
+                          <span class="fw-bold">{{ item.test.test_type.name }}</span>
+                          <br><span class="text-muted">₹{{ item.price }}</span>
+                          {% if item.test.test_included %}
+                            <br><small class="text-info">{{ item.test.test_included }}</small>
+                          {% endif %}
+                        </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="no-doctors-message">You have no upcoming lab tests.</p>
+                {% endif %}
+
+                <h3 class="mb-4 text-center">Past Lab Tests</h3>
+                {% if past_test_orders %}
+                  {% for order in past_test_orders %}
+                  <div class="appointment" style="border-left: 4px solid #bdbdbd;">
+                    <div class="row">
+                      <div class="col-md-8">
+                        <p><strong>Test Order #{{ order.id }}</strong> - {{ order.order_date|date:"F j, Y" }}</p>
+                        <p><strong>Test Date:</strong> {{ order.test_date|date:"F j, Y" }}</p>
+                        <p><strong>Test Time:</strong> {{ order.test_time|time:"g:i A" }}</p>
+                        <p><strong>Hospital:</strong> {{ order.hospital.name }}</p>
+                        <p><strong>Total Amount:</strong> ₹{{ order.total_amount }}</p>
+                        {% if order.notes %}
+                          <p><strong>Notes:</strong> {{ order.notes }}</p>
+                        {% endif %}
+                        <!-- Status Progress Bar -->
+                        <div class="mt-3">
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">Test Status:</span>
+                            <span class="badge {% if order.status == 'booked' %}bg-primary{% elif order.status == 'sample_collected' %}bg-warning{% elif order.status == 'processing' %}bg-info{% else %}bg-success{% endif %}">
+                              {{ order.get_status_display|title }}
+                            </span>
+                          </div>
+                          <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ order.get_status_progress }}%" aria-valuenow="{{ order.get_status_progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                          <div class="d-flex justify-content-between mt-1">
+                            <small class="text-muted">Booked</small>
+                            <small class="text-muted">Sample Collected</small>
+                            <small class="text-muted">Processing</small>
+                            <small class="text-muted">Completed</small>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <h6 class="mb-2">Test Items:</h6>
+                        {% for item in order.items.all %}
+                        <div class="small mb-1">
+                          <span class="fw-bold">{{ item.test.test_type.name }}</span>
+                          <br><span class="text-muted">₹{{ item.price }}</span>
+                          {% if item.test.test_included %}
+                            <br><small class="text-info">{{ item.test.test_included }}</small>
+                          {% endif %}
+                        </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="no-doctors-message">You have no past lab tests.</p>
+                {% endif %}
+                
+                <!-- Delivery Address Update -->
+                <div class="mt-4">
+                  <h4 class="mb-3 text-center">Update Delivery Address & Pincode</h4>
+                  <form method="POST" action="{% url 'update_address' %}" class="row justify-content-center">
+                    {% csrf_token %}
+                    <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label">Delivery Address:</label>
+                        <input type="text" class="form-control" name="address" placeholder="Enter your delivery address" value="{{ user.profile.address }}" required>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="mb-3">
+                        <label class="form-label">Pincode:</label>
+                        <input type="text" class="form-control" name="pincode" placeholder="Enter pincode" value="{{ user.profile.pincode }}" required>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="mb-3">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">Update</button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+                {% endif %}
             </div>
         </div>
         <div class="text-center">

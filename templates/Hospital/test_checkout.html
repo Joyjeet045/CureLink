@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-md-8">
+      <h2 class="fw-bold mb-4 text-success">Test Checkout</h2>
+      
+      <!-- Test Items -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Selected Tests</h5>
+        </div>
+        <div class="card-body">
+          {% for item in cart_items %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h6 class="mb-1">{{ item.test.test_type.name }}</h6>
+                <small class="text-muted">{{ item.test.hospital.name }}</small>
+                {% if item.test.test_included %}
+                  <br><small class="text-info">Includes: {{ item.test.test_included }}</small>
+                {% endif %}
+              </div>
+              <div class="text-end">
+                <span class="fw-bold">₹{{ item.price }}</span>
+              </div>
+            </div>
+          {% endfor %}
+          <hr>
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Total Amount</h5>
+            <h5 class="mb-0 text-success">₹{{ total_amount }}</h5>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date and Time Selection -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Select Date and Time</h5>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'process_test_payment' %}">
+            {% csrf_token %}
+            
+            <!-- Date Selection -->
+            <div class="mb-3">
+              <label for="test_date" class="form-label">Test Date</label>
+              <input type="date" class="form-control" id="test_date" name="test_date" required min="{{ available_dates.0|date:'Y-m-d' }}">
+              <div class="form-text text-danger" id="date-warning" style="display:none;">Sundays are not available for test booking. Please select another date.</div>
+            </div>
+
+            <!-- Time Selection -->
+            <div class="mb-3">
+              <label for="test_time" class="form-label">Test Time</label>
+              <select class="form-select" id="test_time" name="test_time" required>
+                <option value="">Select a time</option>
+                {% for slot, label in time_slots %}
+                  <option value="{{ slot|slice:":5" }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Notes -->
+            <div class="mb-3">
+              <label for="notes" class="form-label">Additional Notes (Optional)</label>
+              <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Any special instructions or notes for your test..."></textarea>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="d-grid">
+              <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-credit-card me-2"></i>
+                Confirm Test Booking - ₹{{ total_amount }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Test Information</h5>
+        </div>
+        <div class="card-body">
+          <h6>{{ hospital.name }}</h6>
+          <p class="text-muted mb-3">{{ hospital.location }}</p>
+          
+          <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>Important Notes:</h6>
+            <ul class="mb-0">
+              <li>Please arrive 15 minutes before your scheduled time</li>
+              <li>Bring a valid ID proof</li>
+              <li>Follow any pre-test instructions provided</li>
+              <li>Tests are conducted Monday to Saturday</li>
+              <li>Timing: 9:00 AM to 5:00 PM</li>
+            </ul>
+          </div>
+
+          <div class="alert alert-warning">
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>Before Your Test:</h6>
+            <ul class="mb-0">
+              <li>Check if fasting is required</li>
+              <li>Bring any previous test reports if applicable</li>
+              <li>Inform about any medications you're taking</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set minimum date to tomorrow
+    const testDateInput = document.getElementById('test_date');
+    const dateWarning = document.getElementById('date-warning');
+    const today = new Date();
+    today.setDate(today.getDate() + 1); // tomorrow
+    const minDate = today.toISOString().split('T')[0];
+    testDateInput.setAttribute('min', minDate);
+
+    // Block Sundays
+    testDateInput.addEventListener('change', function() {
+        const selectedDate = new Date(this.value);
+        // 0 = Sunday
+        if (selectedDate.getDay() === 0) {
+            dateWarning.style.display = 'block';
+            this.value = '';
+        } else {
+            dateWarning.style.display = 'none';
+        }
+    });
+
+    // Prevent form submission if Sunday is selected (extra safety)
+    const form = testDateInput.closest('form');
+    form.addEventListener('submit', function(e) {
+        const selectedDate = new Date(testDateInput.value);
+        if (selectedDate.getDay() === 0) {
+            dateWarning.style.display = 'block';
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %} 

@@ -97,3 +97,24 @@ def logout_page(request):
   auth.logout(request)
   messages.success(request,"Successfully logged out")
   return render(request,'Users/logout.html')
+
+def update_address(request):
+    """Update user's delivery address and pincode"""
+    if request.method == 'POST':
+        new_address = request.POST.get('address', '').strip()
+        new_pincode = request.POST.get('pincode', '').strip()
+        
+        if new_address:
+            try:
+                profile = request.user.profile
+                profile.address = new_address
+                if new_pincode:
+                    profile.pincode = new_pincode
+                profile.save()
+                messages.success(request, 'Delivery address and pincode updated successfully!')
+            except Exception as e:
+                messages.error(request, f'Error updating address: {str(e)}')
+        else:
+            messages.error(request, 'Please provide a valid delivery address.')
+    
+    return redirect('user_dashboard')

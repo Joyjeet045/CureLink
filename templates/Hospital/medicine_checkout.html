@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .checkout-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .order-summary {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  
+  .cart-item {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-left: 4px solid #28a745;
+  }
+  
+  .medicine-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  
+  .delivery-info {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  
+  .total-section {
+    background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+  
+  .pay-button {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border: none;
+    border-radius: 25px;
+    padding: 15px 40px;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    transition: all 0.3s ease;
+  }
+  
+  .pay-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    background: linear-gradient(135deg, #20c997, #28a745);
+  }
+  
+  .prescription-badge {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+</style>
+
+<div class="container mt-5 checkout-container">
+  <div class="row justify-content-center">
+    <div class="col-12">
+      <div class="card shadow-5-strong" style="background: hsla(0, 0%, 100%, 0.9); backdrop-filter: blur(20px);">
+        <div class="card-body py-5 px-md-5">
+          <h2 class="fw-bold mb-4 text-center text-primary">
+            <i class="fas fa-shopping-cart me-2"></i>Medicine Checkout
+          </h2>
+          
+          <!-- Order Summary -->
+          <div class="order-summary">
+            <h4 class="mb-3 text-dark">
+              <i class="fas fa-list me-2"></i>Order Summary
+            </h4>
+            
+            {% for item in cart_items %}
+            <div class="cart-item">
+              <div class="row align-items-center">
+                <div class="col-md-2 col-3">
+                  {% if item.medicine.picture %}
+                    <img src="{{ item.medicine.picture.url }}" alt="{{ item.medicine.name }}" class="medicine-image">
+                  {% else %}
+                    <div class="medicine-image bg-light d-flex align-items-center justify-content-center">
+                      <i class="fas fa-pills text-muted"></i>
+                    </div>
+                  {% endif %}
+                </div>
+                <div class="col-md-6 col-9">
+                  <h6 class="mb-1 fw-bold">{{ item.medicine.name }}</h6>
+                  <p class="text-muted mb-1 small">{{ item.medicine.description|truncatechars:50 }}</p>
+                  <p class="mb-0">
+                    <span class="text-muted">Seller:</span> {{ item.medicine.seller.username }}
+                    {% if item.requires_prescription %}
+                      <span class="prescription-badge ms-2">Prescription Required</span>
+                    {% endif %}
+                  </p>
+                </div>
+                <div class="col-md-2 col-6 text-center">
+                  <span class="text-muted">Quantity</span>
+                  <div class="fw-bold">{{ item.quantity }}</div>
+                </div>
+                <div class="col-md-2 col-6 text-end">
+                  <span class="text-muted">Price</span>
+                  <div class="fw-bold text-success">₹{{ item.price }}</div>
+                  <div class="text-muted small">Total: ₹{{ item.total }}</div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          
+          <!-- Delivery Information -->
+          <div class="delivery-info">
+            <h4 class="mb-3 text-dark">
+              <i class="fas fa-truck me-2"></i>Delivery Information
+            </h4>
+            
+            <div class="row">
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Expected Delivery Date:</label>
+                  <div class="text-primary fw-bold">
+                    <i class="fas fa-calendar me-2"></i>{{ expected_delivery_date|date:"F j, Y" }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Delivery Address:</label>
+                  <div class="text-dark">
+                    <i class="fas fa-map-marker-alt me-2"></i>{{ delivery_address }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Pincode:</label>
+                  <div class="text-dark">
+                    <i class="fas fa-map-pin me-2"></i>{{ delivery_pincode }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <form method="POST" action="{% url 'process_medicine_payment' %}">
+              {% csrf_token %}
+              <div class="row">
+                <div class="col-md-8">
+                  <div class="mb-3">
+                    <label for="delivery_address" class="form-label fw-bold">Update Delivery Address (if needed):</label>
+                    <textarea class="form-control" id="delivery_address" name="delivery_address" rows="3" placeholder="Enter your complete delivery address">{{ delivery_address }}</textarea>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="mb-3">
+                    <label for="delivery_pincode" class="form-label fw-bold">Update Pincode (if needed):</label>
+                    <input type="text" class="form-control" id="delivery_pincode" name="delivery_pincode" placeholder="Enter pincode" value="{{ delivery_pincode }}">
+                  </div>
+                </div>
+              </div>
+              <div class="total-section">
+                <div class="row align-items-center">
+                  <div class="col-md-6">
+                    <h4 class="mb-0 text-dark">
+                      <i class="fas fa-calculator me-2"></i>Total Amount
+                    </h4>
+                    <p class="text-muted mb-0">Including all taxes and delivery charges</p>
+                  </div>
+                  <div class="col-md-6 text-end">
+                    <div class="display-6 fw-bold text-success">₹{{ total_amount }}</div>
+                    <button type="submit" class="pay-button">
+                      <i class="fas fa-credit-card me-2"></i>Pay Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+          
+          <!-- Back to Cart -->
+          <div class="text-center mt-4">
+            <a href="{% url 'medicines' %}" class="btn btn-outline-secondary">
+              <i class="fas fa-arrow-left me-2"></i>Back to Medicines
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} 

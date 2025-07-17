@@ -25,7 +25,9 @@ class State(models.Model):
 class Hospital(models.Model):
   name=models.CharField(max_length=200)
   state = models.ForeignKey(State, on_delete=models.CASCADE)
-  location=models.CharField(max_length=80,default="Kolkata")
+  address = models.CharField(max_length=80, default="Kolkata")
+  latitude = models.FloatField(default=22.5744)
+  longitude = models.FloatField(default=88.3629)
   description=models.TextField(default="A leading healthcare institution committed to providing high-quality medical care and compassionate services to our patients.")
   hospital_pic=models.ImageField(upload_to='profile_pic/HospitalPic/',null=True,blank=True)
   rating=models.BigIntegerField(default=3)
@@ -402,8 +404,23 @@ class TestType(models.Model):
         ('stool', 'Stool'),
         ('swab', 'Swab'),
     ]
+    SLOT_CHOICES = [
+        ('09:00-10:00', '09:00 - 10:00'),
+        ('10:00-11:00', '10:00 - 11:00'),
+        ('11:00-12:00', '11:00 - 12:00'),
+        ('12:00-13:00', '12:00 - 13:00'),
+        ('14:00-15:00', '14:00 - 15:00'),
+        ('15:00-16:00', '15:00 - 16:00'),
+        ('16:00-17:00', '16:00 - 17:00'),
+    ]
     name = models.CharField(max_length=100, unique=True)
     sample_required = models.CharField(max_length=20, choices=SAMPLE_CHOICES, blank=True, help_text="Type of sample required")
+    preferred_time_slots = models.JSONField(default=list, blank=True, help_text="Allowed time slots for this test. Leave blank for all slots.")
+
+    def get_allowed_slots(self):
+        if not self.preferred_time_slots:
+            return [slot[0] for slot in self.SLOT_CHOICES]
+        return self.preferred_time_slots
 
     def __str__(self):
         return self.name
@@ -421,4 +438,92 @@ class Test(models.Model):
 
     def __str__(self):
         return f"{self.test_type.name if self.test_type else 'No TestType'} at {self.hospital.name}"
+
+class MedicineOrder(models.Model):
+    STATUS_CHOICES = [
+        ('ordered', 'Ordered'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='medicine_orders')
+    order_date = models.DateTimeField(auto_now_add=True)
+    expected_delivery_date = models.DateField()
+    delivery_address = models.TextField(default="123 Main Street, Apartment 4B, City Center, New Delhi")
+    delivery_pincode = models.CharField(max_length=10, default="110001")
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ordered')
+    payment_status = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"Order #{self.id} - {self.user.username} - {self.status}"
+    
+    def get_status_progress(self):
+        """Returns the progress percentage for the status bar"""
+        status_order = ['ordered', 'processing', 'shipped', 'delivered']
+        try:
+            current_index = status_order.index(self.status)
+            return (current_index + 1) * 25  # 25% per step
+        except ValueError:
+            return 0
+
+class MedicineOrderItem(models.Model):
+    order = models.ForeignKey(MedicineOrder, on_delete=models.CASCADE, related_name='items')
+    medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    def save(self, *args, **kwargs):
+        if not self.total_price:
+            self.total_price = self.quantity * self.price_per_unit
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.quantity}x {self.medicine.name} - Order #{self.order.id}"
+
+
+class TestOrder(models.Model):
+    STATUS_CHOICES = [
+        ('booked', 'Booked'),
+        ('sample_collected', 'Sample Collected'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='test_orders')
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='test_orders')
+    order_date = models.DateTimeField(auto_now_add=True)
+    test_date = models.DateField()
+    test_time = models.TimeField()
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='booked')
+    payment_status = models.BooleanField(default=False)
+    notes = models.TextField(blank=True, help_text="Additional notes for the test")
+    
+    def __str__(self):
+        return f"Test Order #{self.id} - {self.user.username} - {self.status}"
+    
+    def get_status_progress(self):
+        """Returns the progress percentage for the status bar"""
+        status_order = ['booked', 'sample_collected', 'processing', 'completed']
+        try:
+            current_index = status_order.index(self.status)
+            return (current_index + 1) * 25  # 25% per step
+        except ValueError:
+            return 0
+
+class TestOrderItem(models.Model):
+    order = models.ForeignKey(TestOrder, on_delete=models.CASCADE, related_name='items')
+    test = models.ForeignKey(Test, on_delete=models.CASCADE)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    def save(self, *args, **kwargs):
+        if not self.price:
+            self.price = self.test.price
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"{self.test.test_type.name if self.test.test_type else 'Test'} - Order #{self.order.id}"
 
