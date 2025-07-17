@@ -9,13 +9,15 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment, TestType, Test, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment, TestType, Test, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem, TestReport
 import heapq
 from geopy.distance import geodesic
 from .constants import doctor_departments
 from datetime import datetime, date, timedelta
 from geopy.geocoders import Nominatim
 from django.core.exceptions import PermissionDenied
+from django.core.mail import send_mail
+from django.conf import settings
 
 from django.views.decorators.csrf import csrf_exempt
 from Users.models import UserProfile
@@ -26,7 +28,37 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from Users.models import HospitalAdminMapping
 
-from .models import Doctor
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
+from django.urls import reverse
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from Users.models import HospitalAdminMapping
+
+from django import forms
+
+class AddTestForm(forms.Form):
+    test_type = forms.ModelChoiceField(queryset=TestType.objects.all(), label="Test Type")
+    price = forms.DecimalField(max_digits=8, decimal_places=2)
+    test_included = forms.CharField(max_length=1000, required=False, label="Included Tests (comma-separated)")
+    package_discount = forms.DecimalField(max_digits=5, decimal_places=2, required=False, label="Package Discount (%)")
+    pre_test_instructions = forms.CharField(widget=forms.Textarea, required=False, label="Pre-test Instructions")
+
+class TestReportForm(forms.ModelForm):
+    class Meta:
+        model = TestReport
+        fields = ['findings_positive', 'findings_negative', 'report_file']
+        labels = {
+            'findings_positive': 'Positive Findings',
+            'findings_negative': 'Negative Findings',
+            'report_file': 'Attach Report File (PDF, Image, etc.)',
+        }
+        widgets = {
+            'findings_positive': forms.Textarea(attrs={'rows': 3, 'placeholder': 'E.g. Normal blood count, no infection...'}),
+            'findings_negative': forms.Textarea(attrs={'rows': 3, 'placeholder': 'E.g. High cholesterol, abnormal ECG...'}),
+        }
+
 
 def is_authenticated(user):
   return user.is_authenticated
@@ -1140,6 +1172,38 @@ def update_test_order_status(request, order_id):
     
     return redirect('user_dashboard')
 
+def create_test_report(request, order_id):
+    order = get_object_or_404(TestOrder, id=order_id)
+    # Only allow if no report exists and order belongs to this hospital
+    if hasattr(order, 'report'):
+        messages.warning(request, 'A report has already been created for this order.')
+        return redirect('hospital_admin_home')
+    if request.method == 'POST':
+        form = TestReportForm(request.POST, request.FILES)
+        if form.is_valid():
+            report = form.save(commit=False)
+            report.order = order
+            report.sent_to_patient = True
+            report.save()
+            # Send report to patient via email (with findings in body, file as attachment if present)
+            subject = f"Your Test Report for Order #{order.id}"
+            message = f"Dear {order.user.get_full_name() or order.user.username},\n\nHere are your test report findings:\n\nPositive Findings:\n{report.findings_positive}\n\nNegative Findings:\n{report.findings_negative}\n\nBest regards,\n{order.hospital.name}"
+            from_email = settings.EMAIL_HOST_USER
+            recipient_list = [order.user.email]
+            # Send email with or without attachment
+            if report.report_file:
+                from django.core.mail import EmailMessage
+                email = EmailMessage(subject, message, from_email, recipient_list)
+                email.attach(report.report_file.name, report.report_file.read(), report.report_file.file.content_type)
+                email.send()
+            else:
+                send_mail(subject, message, from_email, recipient_list)
+            messages.success(request, 'Report created and sent to patient successfully!')
+            return redirect('hospital_admin_home')
+    else:
+        form = TestReportForm()
+    return render(request, 'Hospital/create_test_report.html', {'form': form, 'order': order})
+
 def hospital_admin_home(request):
     user = request.user
     if not user.is_authenticated or not hasattr(user, 'profile') or user.profile.role != 'hospital_admin':
@@ -1151,9 +1215,54 @@ def hospital_admin_home(request):
         return HttpResponseForbidden("No hospital mapping found for this admin.")
     hospital = mapping.hospital
     tests = hospital.tests.all()
+    # Add included_list attribute to each test
+    for test in tests:
+        if test.test_included:
+            test.included_list = test.test_included.split(',')
+        else:
+            test.included_list = []
+    # Fetch booked test orders for this hospital
+    booked_orders = hospital.test_orders.filter(status='booked').select_related('user').prefetch_related('items__test')
     return render(request, 'Hospital/hospital_admin_home.html', {
         'hospital': hospital,
         'tests': tests,
+        'booked_orders': booked_orders,
+    })
+
+def add_test_for_hospital(request):
+    user = request.user
+    if not user.is_authenticated or not hasattr(user, 'profile') or user.profile.role != 'hospital_admin':
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("You are not authorized to add tests.")
+    mapping = HospitalAdminMapping.objects.filter(user=user).first()
+    if not mapping:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("No hospital mapping found for this admin.")
+    hospital = mapping.hospital
+    if request.method == 'POST':
+        form = AddTestForm(request.POST)
+        if form.is_valid():
+            test_type = form.cleaned_data['test_type']
+            price = form.cleaned_data['price']
+            test_included = form.cleaned_data['test_included']
+            package_discount = form.cleaned_data['package_discount']
+            pre_test_instructions = form.cleaned_data['pre_test_instructions']
+            test = Test.objects.create(
+                test_type=test_type,
+                hospital=hospital,
+                price=price,
+                available=True,
+                test_included=test_included,
+                package_discount=package_discount,
+                pre_test_instructions=pre_test_instructions
+            )
+            messages.success(request, f"Test '{test_type.name}' added successfully!")
+            return redirect('hospital_admin_home')
+    else:
+        form = AddTestForm()
+    return render(request, 'Hospital/add_test_for_hospital.html', {
+        'form': form,
+        'hospital': hospital,
     })
 
 

@@ -35,4 +35,6 @@ urlpatterns=[
   path('process-test-payment/', views.process_test_payment, name='process_test_payment'),
   path('update-test-order-status/<int:order_id>/', views.update_test_order_status, name='update_test_order_status'),
   path('hospital-admin-home/', views.hospital_admin_home, name='hospital_admin_home'),
+  path('add-test-for-hospital/', views.add_test_for_hospital, name='add_test_for_hospital'),
+  path('create-test-report/<int:order_id>/', views.create_test_report, name='create_test_report'),
 ]

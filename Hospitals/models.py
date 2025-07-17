@@ -527,3 +527,15 @@ class TestOrderItem(models.Model):
     def __str__(self):
         return f"{self.test.test_type.name if self.test.test_type else 'Test'} - Order #{self.order.id}"
 
+
+class TestReport(models.Model):
+    order = models.OneToOneField('TestOrder', on_delete=models.CASCADE, related_name='report')
+    findings_positive = models.TextField("Positive Findings", blank=True)
+    findings_negative = models.TextField("Negative Findings", blank=True)
+    report_file = models.FileField(upload_to='test_reports/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_to_patient = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Report for Order #{self.order.id}"
+

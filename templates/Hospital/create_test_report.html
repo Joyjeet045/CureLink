@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<div class="container mt-5">
+  <div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">Create Test Report for Order #{{ order.id }}</h4>
+      <div class="small">Patient: {{ order.user.get_full_name|default:order.user.username }} | Date: {{ order.test_date }} | Time: {{ order.test_time }}</div>
+    </div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="id_findings_positive" class="form-label">Positive Findings</label>
+          {{ form.findings_positive }}
+        </div>
+        <div class="mb-3">
+          <label for="id_findings_negative" class="form-label">Negative Findings</label>
+          {{ form.findings_negative }}
+        </div>
+        <div class="mb-3">
+          <label for="id_report_file" class="form-label">Attach Report File (optional)</label>
+          {{ form.report_file }}
+        </div>
+        <button type="submit" class="btn btn-success">Submit Report &amp; Send to Patient</button>
+        <a href="{% url 'hospital_admin_home' %}" class="btn btn-secondary ms-2">Cancel</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %} 
