@@ -24,7 +24,6 @@ urlpatterns=[
   path('doctor-take-leave/', views.doctor_take_leave, name='doctor_take_leave'),
   path('toggle-video-online/', views.toggle_video_online, name='toggle_video_online'),
   path('video-consultation/', views.video_consultation, name='video_consultation'),
-  path('video-consultation/<str:room_name>/', views.video_consultation, name='video_consultation_room'),
   path('start-video-consultation/<int:doctor_id>/', views.start_video_consultation, name='start_video_consultation'),
   path('online-doctor-count/', views.online_doctor_count, name='online_doctor_count'),
   path('doctor-video-online-state/', views.doctor_video_online_state, name='doctor_video_online_state'),
@@ -37,4 +36,6 @@ urlpatterns=[
   path('add-test-for-hospital/', views.add_test_for_hospital, name='add_test_for_hospital'),
   path('create-test-report/<int:order_id>/', views.create_test_report, name='create_test_report'),
   path('approve-doctor-request/<int:request_id>/', views.approve_doctor_request, name='approve_doctor_request'),
+  path('submit_symptoms/', views.submit_symptoms, name='submit_symptoms'),
+  path('video-consultation/<int:room_id>/', views.video_consultation, name='video_consultation_room'),
 ]

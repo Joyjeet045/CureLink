@@ -386,14 +386,14 @@ class VideoAppointment(models.Model):
         ('active', 'Active'),
         ('ended', 'Ended'),
     ]
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='video_appointments')
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='video_appointments', null=True, blank=True)
     patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_appointments')
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
 
     def __str__(self):
-        return f"VideoAppointment: {self.patient.username} with Dr. {self.doctor.get_name} ({self.status})"
+        return f"VideoAppointment: {self.patient.username} with Dr. {self.doctor.get_name if self.doctor else 'Unassigned'} ({self.status})"
 
 
 class TestType(models.Model):

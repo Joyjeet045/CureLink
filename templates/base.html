@@ -93,7 +93,7 @@
               });
               </script>
             {% endif %}
-            <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative" onclick="openVideoConsultationWindow()">
+            <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative">
               VIDEO CONSULTATION
               <span id="online-doctor-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                 0
@@ -114,7 +114,7 @@
     {% endblock %}
   </div>
   <br><br>
-  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 <footer class="bg-light text-center">
   <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.2);">
@@ -130,11 +130,7 @@
   </div>
 </footer>
 <script>
-function openVideoConsultationWindow() {
-  window.open('/video/consult/', '_blank', 'width=1200,height=800');
-}
 
-// Real-time online doctor count update using WebSocket
 (function() {
   var ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
   var ws_path = ws_scheme + '://' + window.location.host + '/ws/online_doctor_count/';
@@ -173,6 +169,61 @@ document.addEventListener('DOMContentLoaded', function() {
         location.reload();
       });
     });
+  }
+});
+</script>
+<!-- Video Consultation Modal -->
+<div class="modal fade" id="videoConsultModal" tabindex="-1" aria-labelledby="videoConsultModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="videoConsultForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="videoConsultModalLabel">Start Video Consultation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="symptom" class="form-label">Symptom</label>
+          <input type="text" class="form-control" id="symptom" name="symptom" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-success">Connect!</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var videoBtn = document.getElementById('video-consult-btn');
+  if (videoBtn) {
+    videoBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      var modal = new bootstrap.Modal(document.getElementById('videoConsultModal'));
+      modal.show();
+    });
+  }
+  var form = document.getElementById('videoConsultForm');
+  if (form) {
+    form.onsubmit = function(e) {
+      e.preventDefault();
+      var symptom = document.getElementById('symptom').value;
+      fetch('/submit_symptoms/', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'symptoms=' + encodeURIComponent(symptom)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          window.open('/video-consultation/' + data.room_id + '/', '_blank', 'width=1200,height=800');
+        } else {
+          alert('No matching department founvided.');
+        }
+      });
+    };
   }
 });
 </script>

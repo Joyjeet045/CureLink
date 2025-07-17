@@ -29,6 +29,11 @@ from channels.layers import get_channel_layer
 from Users.models import HospitalAdminMapping
 from .models import DoctorHospitalRequest
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import uuid
+import subprocess
+import json
 
 from django import forms
 
@@ -675,9 +680,25 @@ def toggle_video_online(request):
     )
     return JsonResponse({'online': doctor.video_online})
 
+@csrf_exempt
 @login_required
-def video_consultation(request, room_name=None):
-    return render(request, 'Hospital/video_consultation.html', {'room_name': room_name or 'default'})
+def submit_symptoms(request):
+    if request.method == "POST":
+        appointment = VideoAppointment.objects.create(
+            patient=request.user
+        )
+        return JsonResponse({"success": True, "room_id": appointment.id})
+    return JsonResponse({"success": False}, status=400)
+
+@login_required
+def video_consultation(request, room_id=None):
+    appointment = None
+    if room_id:
+        appointment = VideoAppointment.objects.filter(id=room_id).first()
+    return render(request, 'Hospital/video_consultation.html', {
+        'room_id': room_id,
+        'appointment': appointment,
+    })
 
 @login_required
 def start_video_consultation(request, doctor_id):

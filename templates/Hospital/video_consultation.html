@@ -13,7 +13,38 @@
         .video-box { background: #fff; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); padding: 24px; width: 60%; display: flex; flex-direction: column; align-items: center; }
         .video-box video { width: 100%; border-radius: 12px; background: #222; }
         .chat-box { background: #fff; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); padding: 24px; width: 35%; display: flex; flex-direction: column; height: 500px; }
-        .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 16px; }
+        .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 16px; display: flex; flex-direction: column; }
+        .chat-bubble {
+            max-width: 75%;
+            padding: 10px 16px;
+            border-radius: 18px;
+            margin-bottom: 8px;
+            font-size: 15px;
+            word-break: break-word;
+            display: inline-block;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        }
+        .chat-bubble.sender {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+            margin-left: auto;
+            text-align: right;
+        }
+        .chat-bubble.receiver {
+            background: linear-gradient(135deg, #f1f8e9, #c8e6c9);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            margin-right: auto;
+            text-align: left;
+        }
+        .chat-meta {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+            text-align: right;
+        }
         .chat-input { display: flex; }
         .chat-input input { flex: 1; border-radius: 8px 0 0 8px; border: 1px solid #ddd; padding: 8px; }
         .chat-input button { border-radius: 0 8px 8px 0; border: none; background: #007bff; color: #fff; padding: 8px 16px; }
@@ -24,6 +55,18 @@
     <div class="container video-container">
         <div class="video-box">
             <h4>Video Consultation</h4>
+            {% if consultation %}
+                <div class="alert alert-info">
+                    <b>Patient:</b> {{ consultation.patient.user.username }}<br>
+                    <b>Department:</b> {{ consultation.department }}<br>
+                    <b>Requested at:</b> {{ consultation.created_at }}<br>
+                    {% if user_role == 'doctor' and not consultation.accepted_by %}
+                        <button class="btn btn-success mt-2" id="acceptRequestBtn">Accept Consultation</button>
+                    {% elif user_role == 'doctor' and consultation.accepted_by %}
+                        <span class="badge bg-success">Accepted</span>
+                    {% endif %}
+                </div>
+            {% endif %}
             <video id="localVideo" autoplay muted playsinline></video>
             <video id="remoteVideo" autoplay playsinline style="margin-top: 16px;"></video>
             <div class="status-bar" id="connectionStatus">Connecting...</div>
@@ -42,7 +85,7 @@
     </div>
     <script>
         // --- WebRTC and WebSocket signaling logic ---
-        const roomName = "{{ room_name|escapejs }}";
+        const roomName = "{{ room_id|escapejs }}";
         const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
         const signalingSocket = new WebSocket(
             wsScheme + '://' + window.location.host + '/ws/video/' + roomName + '/'
@@ -137,12 +180,13 @@
         const chatForm = document.getElementById('chatForm');
         const chatInput = document.getElementById('chatInput');
         const chatMessages = document.getElementById('chatMessages');
+        const currentUser = "{{ user.username|escapejs }}";
 
         chatForm.onsubmit = function(e) {
             e.preventDefault();
             const message = chatInput.value.trim();
             if (message) {
-                chatSocket.send(JSON.stringify({ 'message': message }));
+                chatSocket.send(JSON.stringify({ 'message': message, 'sender': currentUser }));
                 chatInput.value = '';
             }
         };
@@ -151,8 +195,10 @@
             const data = JSON.parse(event.data);
             if (data.message) {
                 const msgDiv = document.createElement('div');
-                msgDiv.className = 'mb-2';
-                msgDiv.textContent = data.message;
+                // Determine if the message is from the current user
+                const isSender = data.sender === currentUser;
+                msgDiv.className = 'chat-bubble ' + (isSender ? 'sender' : 'receiver');
+                msgDiv.innerHTML = `<span>${data.message}</span><div class="chat-meta">${isSender ? 'You' : data.sender || 'Other'}</div>`;
                 chatMessages.appendChild(msgDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
@@ -171,6 +217,33 @@
             chatSocket.close();
             window.close();
         };
+
+    // Accept consultation request (doctor only)
+    document.addEventListener('DOMContentLoaded', function() {
+        var acceptBtn = document.getElementById('acceptRequestBtn');
+        if (acceptBtn) {
+            acceptBtn.onclick = function() {
+                fetch('/accept_video_request/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ room_id: '{{ consultation.room_id }}' })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        acceptBtn.disabled = true;
+                        acceptBtn.textContent = 'Accepted';
+                        location.reload();
+                    } else {
+                        alert('Could not accept request.');
+                    }
+                });
+            };
+        }
+    });
     </script>
 </body>
 </html> 
