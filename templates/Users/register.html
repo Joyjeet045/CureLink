@@ -67,6 +67,10 @@
                 <input class="form-check-input" type="radio" name="role" id="role_seller" value="seller">
                 <label class="form-check-label" for="role_seller">Seller</label>
               </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="role" id="role_admin" value="admin">
+                <label class="form-check-label" for="role_admin">Admin</label>
+              </div>
             </div>
             <div id="doctor-fields" style="display:none;">
               <div class="form-outline mb-4">
@@ -98,9 +102,16 @@
                 <label class="form-label" for="qualifications">Qualifications</label>
               </div>
             </div>
+            <div id="admin-fields" style="display:none;">
+              <div class="form-outline mb-4">
+                <input type="text" id="admin_key" class="form-control" name="admin_key" placeholder="Admin Access Key" />
+                <label class="form-label" for="admin_key">Admin Access Key</label>
+              </div>
+            </div>
             <script>
               document.addEventListener('DOMContentLoaded', function() {
                 var doctorFields = document.getElementById('doctor-fields');
+                var adminFields = document.getElementById('admin-fields');
                 var roleRadios = document.getElementsByName('role');
                 function updateRoleFields() {
                   var selectedRole = Array.from(roleRadios).find(r => r.checked).value;
@@ -108,6 +119,13 @@
                     doctorFields.style.display = '';
                   } else {
                     doctorFields.style.display = 'none';
+                  }
+                  if (selectedRole === 'admin') {
+                    adminFields.style.display = '';
+                    document.getElementById('admin_key').setAttribute('required', 'required');
+                  } else {
+                    adminFields.style.display = 'none';
+                    document.getElementById('admin_key').removeAttribute('required');
                   }
                 }
                 roleRadios.forEach(function(radio) {
