@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, DoctorLeave, VideoAppointment, TestType, Test, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem, TestReport
+from .models import Doctor, Hospital, State, Timing, Review, Appointment, Medicine, Prescription, MedicineEntry, PrescriptionTest, DoctorLeave, VideoAppointment, TestType, Test, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem, TestReport
 import heapq
 from geopy.distance import geodesic
 from .constants import doctor_departments
@@ -533,6 +533,7 @@ def reschedule_appointment(request, appointment_id):
 
 def medicines_page(request):
     cure_to_filter = request.GET.get('cure_to', '')
+    highlight_id = request.GET.get('highlight')
     medicines = Medicine.objects.all()
     if cure_to_filter:
         medicines = medicines.filter(cure_to=cure_to_filter)
@@ -540,15 +541,22 @@ def medicines_page(request):
     return render(request, 'Hospital/medicines.html', {
         'medicines': medicines,
         'cure_choices': cure_choices,
-        'selected_cure': cure_to_filter
+        'selected_cure': cure_to_filter,
+        'highlight_id': highlight_id
     })
 def tests_page(request):
     test_types = TestType.objects.all()
-    return render(request, 'Hospital/tests.html', {'test_types': test_types})
+    highlight_id = request.GET.get('highlight')
+    return render(request, 'Hospital/tests.html', {
+        'test_types': test_types,
+        'highlight_id': highlight_id
+    })
 
 def add_prescription(request, appointment_id):
     appointment = get_object_or_404(Appointment, id=appointment_id)
     medicines = Medicine.objects.all()
+    test_types = TestType.objects.all()
+    
     if request.method == 'POST':
         medicine_ids = request.POST.getlist('medicine')
         dosages = request.POST.getlist('dosage')
@@ -557,22 +565,48 @@ def add_prescription(request, appointment_id):
         frequencies = request.POST.getlist('frequency')
         food_relations = request.POST.getlist('food_relation')
         diagnosis = request.POST.get('diagnosis', '')
+        
+        # Get test data
+        test_type_ids = request.POST.getlist('test_type')
+        priorities = request.POST.getlist('priority')
+        test_notes = request.POST.getlist('test_notes')
+        
         with transaction.atomic():
             Prescription.objects.filter(appointment=appointment).delete()
             prescription = Prescription.objects.create(appointment=appointment, diagnosis=diagnosis)
+            
+            # Create medicine entries
             for i in range(len(medicine_ids)):
-                medicine_obj = Medicine.objects.get(id=medicine_ids[i])
-                MedicineEntry.objects.create(
-                    prescription=prescription,
-                    medicine=medicine_obj,
-                    dosage=dosages[i],
-                    dosage_unit=dosage_units[i],
-                    num_days=num_days_list[i],
-                    frequency=frequencies[i],
-                    food_relation=food_relations[i]
-                )
+                if medicine_ids[i]:  # Only create if medicine is selected
+                    medicine_obj = Medicine.objects.get(id=medicine_ids[i])
+                    MedicineEntry.objects.create(
+                        prescription=prescription,
+                        medicine=medicine_obj,
+                        dosage=dosages[i],
+                        dosage_unit=dosage_units[i],
+                        num_days=num_days_list[i],
+                        frequency=frequencies[i],
+                        food_relation=food_relations[i]
+                    )
+            
+            # Create test entries
+            for i in range(len(test_type_ids)):
+                if test_type_ids[i]:  # Only create if test type is selected
+                    test_type_obj = TestType.objects.get(id=test_type_ids[i])
+                    PrescriptionTest.objects.create(
+                        prescription=prescription,
+                        test_type=test_type_obj,
+                        notes=test_notes[i],
+                        priority=priorities[i]
+                    )
+        
         return JsonResponse({'success': True, 'message': 'Prescription sent to patient.'})
-    return render(request, 'Hospital/prescription_form.html', {'appointment': appointment, 'medicines': medicines})
+    
+    return render(request, 'Hospital/prescription_form.html', {
+        'appointment': appointment, 
+        'medicines': medicines,
+        'test_types': test_types
+    })
 
 @require_GET
 def get_prescription_details(request, appointment_id):
@@ -583,6 +617,7 @@ def get_prescription_details(request, appointment_id):
         prescription = appointment.prescription
     except Prescription.DoesNotExist:
         return JsonResponse({"success": False, "error": "No prescription found for this appointment."}, status=404)
+    
     medicines = [
         {
             "id": entry.medicine.id,
@@ -595,10 +630,23 @@ def get_prescription_details(request, appointment_id):
         }
         for entry in prescription.medicines.all()
     ]
+    
+    tests = [
+        {
+            "id": entry.test_type.id,
+            "name": entry.test_type.name,
+            "priority": entry.priority,
+            "notes": entry.notes,
+            "sample_required": entry.test_type.sample_required,
+        }
+        for entry in prescription.tests.all()
+    ]
+    
     data = {
         "success": True,
         "diagnosis": prescription.diagnosis,
         "medicines": medicines,
+        "tests": tests,
         "doctor_notes": appointment.notes,
         "doctor_name": appointment.doctor.get_name,
     }

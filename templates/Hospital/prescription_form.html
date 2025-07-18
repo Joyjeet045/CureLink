@@ -58,6 +58,43 @@
       <label for="diagnosis" class="form-label">Diagnosis / Doctor's Notes</label>
       <textarea class="form-control" id="diagnosis" name="diagnosis" rows="2"></textarea>
     </div>
+    
+    <!-- Tests Section -->
+    <div class="mb-3">
+      <h5>Prescribed Tests</h5>
+      <div id="tests-container">
+        <div class="test-entry row g-2 mb-2 align-items-end flex-nowrap">
+          <div class="col-auto" style="min-width:200px;">
+            <label class="form-label">Test Type *</label>
+            <select class="form-select" name="test_type" required>
+              <option value="">Select Test Type</option>
+              {% for test_type in test_types %}
+                <option value="{{ test_type.id }}">{{ test_type.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto" style="min-width:120px;">
+            <label class="form-label">Priority</label>
+            <select class="form-select" name="priority">
+              <option value="routine">Routine</option>
+              <option value="urgent">Urgent</option>
+              <option value="emergency">Emergency</option>
+            </select>
+          </div>
+          <div class="col-auto" style="min-width:200px;">
+            <label class="form-label">Notes</label>
+            <input type="text" class="form-control" name="test_notes" placeholder="Additional notes">
+          </div>
+          <div class="col-auto d-flex align-items-end">
+            <button type="button" class="btn btn-danger btn-remove-test" style="display:none;">&minus;</button>
+          </div>
+        </div>
+      </div>
+      <div class="mb-2">
+        <button type="button" class="btn btn-info" id="add-test-btn">+ Add Test</button>
+      </div>
+    </div>
+    
     <div class="d-flex justify-content-end">
       <button type="submit" class="btn btn-primary" id="send-prescription-btn">Save Prescription</button>
     </div>
@@ -95,12 +132,40 @@ function getMedicineEntryHtml() {
     + `</div>`;
 }
 
+function getTestEntryHtml() {
+  return `<div class=\"test-entry row g-2 mb-2 align-items-end flex-nowrap\">`
+    + `<div class=\"col-auto\" style=\"min-width:200px;\">`
+    + `<select class=\"form-select\" name=\"test_type\" required>`
+    + `<option value=\"\">Select Test Type</option>`
+    + `{% for test_type in test_types %}<option value=\"{{ test_type.id }}\">{{ test_type.name }}</option>{% endfor %}`
+    + `</select></div>`
+    + `<div class=\"col-auto\" style=\"min-width:120px;\">`
+    + `<select class=\"form-select\" name=\"priority\">`
+    + `<option value=\"routine\">Routine</option>`
+    + `<option value=\"urgent\">Urgent</option>`
+    + `<option value=\"emergency\">Emergency</option>`
+    + `</select></div>`
+    + `<div class=\"col-auto\" style=\"min-width:200px;\">`
+    + `<input type=\"text\" class=\"form-control\" name=\"test_notes\" placeholder=\"Additional notes\"></div>`
+    + `<div class=\"col-auto d-flex align-items-end\">`
+    + `<button type=\"button\" class=\"btn btn-danger btn-remove-test\">&minus;</button></div>`
+    + `</div>`;
+}
+
 document.getElementById('add-medicine-btn').onclick = function() {
   var container = document.getElementById('medicines-container');
   var newEntry = document.createElement('div');
   newEntry.innerHTML = getMedicineEntryHtml();
   container.appendChild(newEntry.firstChild);
   updateRemoveButtons();
+};
+
+document.getElementById('add-test-btn').onclick = function() {
+  var container = document.getElementById('tests-container');
+  var newEntry = document.createElement('div');
+  newEntry.innerHTML = getTestEntryHtml();
+  container.appendChild(newEntry.firstChild);
+  updateRemoveTestButtons();
 };
 
 function updateRemoveButtons() {
@@ -116,7 +181,23 @@ function updateRemoveButtons() {
     }
   });
 }
+
+function updateRemoveTestButtons() {
+  var entries = document.querySelectorAll('.test-entry');
+  entries.forEach(function(entry, idx) {
+    var btn = entry.querySelector('.btn-remove-test');
+    if (btn) {
+      btn.style.display = (entries.length > 1) ? '' : 'none';
+      btn.onclick = function() {
+        entry.remove();
+        updateRemoveTestButtons();
+      };
+    }
+  });
+}
+
 updateRemoveButtons();
+updateRemoveTestButtons();
 
 document.getElementById('prescription-form').onsubmit = function(e) {
   e.preventDefault();
@@ -131,6 +212,15 @@ document.getElementById('prescription-form').onsubmit = function(e) {
     formData.append('frequency', entry.querySelector('[name="frequency"]').value);
     formData.append('food_relation', entry.querySelector('[name="food_relation"]').value);
   });
+  
+  // Add test data
+  var testEntries = document.querySelectorAll('.test-entry');
+  testEntries.forEach(function(entry, idx) {
+    formData.append('test_type', entry.querySelector('[name="test_type"]').value);
+    formData.append('priority', entry.querySelector('[name="priority"]').value);
+    formData.append('test_notes', entry.querySelector('[name="test_notes"]').value);
+  });
+  
   formData.append('diagnosis', document.getElementById('diagnosis').value);
   fetch(window.location.href, {
     method: 'POST',

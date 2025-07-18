@@ -245,8 +245,6 @@ function showWaitingNotification(roomId, doctorsCount, specialties) {
   `;
   
   document.body.appendChild(notification);
-  
-  // Connect to WebSocket to listen for doctor acceptance
   connectPatientWebSocket(roomId);
 }
 

@@ -126,6 +126,45 @@
     color: #fff;
     text-decoration: none;
   }
+  
+  /* Test entry styling */
+  .test-entry {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .test-entry .test-title {
+    font-weight: 500;
+    color: #17a2b8;
+    margin-bottom: 4px;
+  }
+  .test-entry .test-details {
+    font-size: 15px;
+    color: #444;
+    margin-bottom: 8px;
+  }
+  .test-entry .view-in-store-btn {
+    align-self: flex-start;
+    margin-top: 4px;
+    font-size: 14px;
+    padding: 4px 12px;
+    border-radius: 4px;
+    background: #17a2b8;
+    color: #fff;
+    border: none;
+    transition: background 0.2s;
+    text-decoration: none;
+  }
+  .test-entry .view-in-store-btn:hover {
+    background: #138496;
+    color: #fff;
+    text-decoration: none;
+  }
   /* Loading state for buttons */
   .btn:disabled {
     opacity: 0.6;
@@ -253,7 +292,7 @@ input:checked + .slider:before {
                       <p>Hospital: {{ appointment.hospital.name }}</p>
                       <p>Status: <span class="{% if appointment.status %}status-true{% else %}status-false{% endif %}">Upcoming</span></p>
                         <div class="d-flex align-items-center" style="gap: 10px;">
-                          <a class="btn btn-info btn-sm ms-auto" href="/appointment/{{ appointment.id }}/prescription/">
+                          <a class="btn btn-info btn-sm ms-auto" href="{% url 'add_prescription' appointment.id %}">
                             {% if appointment.prescription %}Edit Prescription{% else %}Add Prescription{% endif %}
                           </a>
                         </div>
@@ -544,6 +583,8 @@ input:checked + .slider:before {
           <p id="prescription-diagnosis"></p>
           <h6>Medicines:</h6>
           <ul id="prescription-medicines-list"></ul>
+          <h6>Prescribed Tests:</h6>
+          <ul id="prescription-tests-list"></ul>
         </div>
         <div id="prescription-error" class="alert alert-danger" style="display:none;"></div>
       </div>
@@ -651,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function() {
       content.style.display = 'none';
       error.style.display = 'none';
       prescriptionModal.show();
-      fetch(`/api/prescription/${appointmentId}/`)
+      fetch(`/get-prescription-details/${appointmentId}/`)
         .then(response => response.json())
         .then(data => {
           loading.style.display = 'none';
@@ -676,6 +717,27 @@ document.addEventListener('DOMContentLoaded', function() {
               var li = document.createElement('li');
               li.textContent = 'No medicines prescribed.';
               medicinesList.appendChild(li);
+            }
+            
+            // Handle tests
+            var testsList = document.getElementById('prescription-tests-list');
+            testsList.innerHTML = '';
+            if (data.tests && data.tests.length > 0) {
+              data.tests.forEach(function(test) {
+                var li = document.createElement('li');
+                li.className = 'test-entry';
+                var priorityClass = test.priority === 'urgent' ? 'text-warning' : test.priority === 'emergency' ? 'text-danger' : 'text-info';
+                li.innerHTML = `
+                  <div class="test-title">${test.name} <span class="badge ${priorityClass}">${test.priority}</span></div>
+                  <div class="test-details">Sample: ${test.sample_required || 'Not specified'}${test.notes ? ', Notes: ' + test.notes : ''}</div>
+                  <a class="view-in-store-btn" href="/tests/?highlight=${test.id}">View in Store</a>
+                `;
+                testsList.appendChild(li);
+              });
+            } else {
+              var li = document.createElement('li');
+              li.textContent = 'No tests prescribed.';
+              testsList.appendChild(li);
             }
             content.style.display = 'block';
           } else {

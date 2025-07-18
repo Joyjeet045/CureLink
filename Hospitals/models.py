@@ -290,6 +290,63 @@ class MedicineEntry(models.Model):
     def __str__(self):
         return f'{self.medicine.name} ({self.dosage} {self.dosage_unit})'
 
+class TestType(models.Model):
+    SAMPLE_CHOICES = [
+        ('blood', 'Blood'),
+        ('urine', 'Urine'),
+        ('saliva', 'Saliva'),
+        ('stool', 'Stool'),
+        ('swab', 'Swab'),
+    ]
+    SLOT_CHOICES = [
+        ('09:00-10:00', '09:00 - 10:00'),
+        ('10:00-11:00', '10:00 - 11:00'),
+        ('11:00-12:00', '11:00 - 12:00'),
+        ('12:00-13:00', '12:00 - 13:00'),
+        ('14:00-15:00', '14:00 - 15:00'),
+        ('15:00-16:00', '15:00 - 16:00'),
+        ('16:00-17:00', '16:00 - 17:00'),
+    ]
+    name = models.CharField(max_length=100, unique=True)
+    sample_required = models.CharField(max_length=20, choices=SAMPLE_CHOICES, blank=True, help_text="Type of sample required")
+    preferred_time_slots = models.JSONField(default=list, blank=True, help_text="Allowed time slots for this test. Leave blank for all slots.")
+
+    def get_allowed_slots(self):
+        if not self.preferred_time_slots:
+            return [slot[0] for slot in self.SLOT_CHOICES]
+        return self.preferred_time_slots
+
+    def __str__(self):
+        return self.name
+
+class Test(models.Model):
+    test_type = models.ForeignKey(TestType, on_delete=models.CASCADE, related_name='hospital_tests', null=True, blank=True)
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='tests')
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    available = models.BooleanField(default=True)
+    test_included = models.CharField(max_length=1000, blank=True, help_text="Comma-separated list of included test names (for packages)")
+    package_discount = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Discount percentage for the package, if applicable")
+    pre_test_instructions = models.TextField(blank=True, help_text="Instructions for the patient before taking the test or package")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.test_type.name if self.test_type else 'No TestType'} at {self.hospital.name}"
+
+class PrescriptionTest(models.Model):
+    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE, related_name='tests')
+    test_type = models.ForeignKey(TestType, on_delete=models.CASCADE)
+    notes = models.TextField(blank=True, help_text="Additional notes or instructions for the test")
+    priority = models.CharField(max_length=20, choices=[
+        ('routine', 'Routine'),
+        ('urgent', 'Urgent'),
+        ('emergency', 'Emergency'),
+    ], default='routine')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f'{self.test_type.name} - {self.prescription.appointment}'
+
 class DoctorLeave(models.Model):
     doctor = models.ForeignKey('Doctor', on_delete=models.CASCADE, related_name='leaves')
     start_date = models.DateField()
@@ -396,48 +453,6 @@ class VideoAppointment(models.Model):
         return f"VideoAppointment: {self.patient.username} with Dr. {self.doctor.get_name if self.doctor else 'Unassigned'} ({self.status})"
 
 
-class TestType(models.Model):
-    SAMPLE_CHOICES = [
-        ('blood', 'Blood'),
-        ('urine', 'Urine'),
-        ('saliva', 'Saliva'),
-        ('stool', 'Stool'),
-        ('swab', 'Swab'),
-    ]
-    SLOT_CHOICES = [
-        ('09:00-10:00', '09:00 - 10:00'),
-        ('10:00-11:00', '10:00 - 11:00'),
-        ('11:00-12:00', '11:00 - 12:00'),
-        ('12:00-13:00', '12:00 - 13:00'),
-        ('14:00-15:00', '14:00 - 15:00'),
-        ('15:00-16:00', '15:00 - 16:00'),
-        ('16:00-17:00', '16:00 - 17:00'),
-    ]
-    name = models.CharField(max_length=100, unique=True)
-    sample_required = models.CharField(max_length=20, choices=SAMPLE_CHOICES, blank=True, help_text="Type of sample required")
-    preferred_time_slots = models.JSONField(default=list, blank=True, help_text="Allowed time slots for this test. Leave blank for all slots.")
-
-    def get_allowed_slots(self):
-        if not self.preferred_time_slots:
-            return [slot[0] for slot in self.SLOT_CHOICES]
-        return self.preferred_time_slots
-
-    def __str__(self):
-        return self.name
-
-class Test(models.Model):
-    test_type = models.ForeignKey(TestType, on_delete=models.CASCADE, related_name='hospital_tests', null=True, blank=True)
-    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name='tests')
-    price = models.DecimalField(max_digits=8, decimal_places=2)
-    available = models.BooleanField(default=True)
-    test_included = models.CharField(max_length=1000, blank=True, help_text="Comma-separated list of included test names (for packages)")
-    package_discount = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Discount percentage for the package, if applicable")
-    pre_test_instructions = models.TextField(blank=True, help_text="Instructions for the patient before taking the test or package")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.test_type.name if self.test_type else 'No TestType'} at {self.hospital.name}"
 
 class MedicineOrder(models.Model):
     STATUS_CHOICES = [
