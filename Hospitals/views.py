@@ -38,6 +38,10 @@ import sys
 import os
 
 from django import forms
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+import io
+from xhtml2pdf import pisa
 
 class AddTestForm(forms.Form):
     test_type = forms.ModelChoiceField(queryset=TestType.objects.all(), label="Test Type")
@@ -1469,5 +1473,23 @@ def view_test_report(request, order_id):
         messages.error(request, 'No report available for this order.')
         return redirect('user_dashboard')
     return render(request, 'Hospital/test_report.html', {'order': order, 'report': report})
+
+@login_required
+def prescription_pdf(request, appointment_id):
+    appointment = get_object_or_404(Appointment, id=appointment_id)
+    if appointment.user != request.user:
+        return HttpResponse('Unauthorized', status=401)
+    try:
+        prescription = appointment.prescription
+    except Prescription.DoesNotExist:
+        return HttpResponse('No prescription found.', status=404)
+    html = render_to_string('Hospital/prescription_pdf.html', {'appointment': appointment, 'prescription': prescription})
+    result = io.BytesIO()
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode('UTF-8')), result)
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename=prescription_{appointment_id}.pdf'
+        return response
+    return HttpResponse('Error generating PDF', status=500)
 
 

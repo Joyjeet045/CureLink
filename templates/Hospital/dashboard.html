@@ -599,6 +599,9 @@ input:checked + .slider:before {
           <ul id="prescription-tests-list"></ul>
         </div>
         <div id="prescription-error" class="alert alert-danger" style="display:none;"></div>
+        <div class="text-center mt-4">
+            <a id="download-prescription-pdf" class="btn btn-outline-primary" style="display:none;" target="_blank">Download Prescription as PDF</a>
+          </div>
       </div>
     </div>
   </div>
@@ -752,9 +755,14 @@ document.addEventListener('DOMContentLoaded', function() {
               testsList.appendChild(li);
             }
             content.style.display = 'block';
+            // Show download PDF button
+            const downloadBtn = document.getElementById('download-prescription-pdf');
+            downloadBtn.style.display = 'inline-block';
+            downloadBtn.href = `/prescription-pdf/${appointmentId}/`;
           } else {
             error.textContent = data.error || 'No prescription found.';
             error.style.display = 'block';
+            document.getElementById('download-prescription-pdf').style.display = 'none';
           }
         })
         .catch(err => {

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Prescription PDF</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 14px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .section { margin-bottom: 18px; }
+        .section-title { font-weight: bold; font-size: 16px; margin-bottom: 6px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        th, td { border: 1px solid #888; padding: 6px; text-align: left; }
+        th { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>Prescription</h2>
+        <p><strong>Doctor:</strong> {{ appointment.doctor.get_name }}</p>
+        <p><strong>Patient:</strong> {{ appointment.user.get_full_name|default:appointment.user.username }}</p>
+        <p><strong>Date:</strong> {{ appointment.appointment_date }}</p>
+    </div>
+    <div class="section">
+        <div class="section-title">Diagnosis</div>
+        <div>{{ prescription.diagnosis|default:"-" }}</div>
+    </div>
+    <div class="section">
+        <div class="section-title">Medicines</div>
+        {% if prescription.medicines.all %}
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Dosage</th>
+                <th>Unit</th>
+                <th>Days</th>
+                <th>Frequency</th>
+                <th>Food Relation</th>
+            </tr>
+            {% for med in prescription.medicines.all %}
+            <tr>
+                <td>{{ med.medicine.name }}</td>
+                <td>{{ med.dosage }}</td>
+                <td>{{ med.dosage_unit }}</td>
+                <td>{{ med.num_days }}</td>
+                <td>{{ med.frequency }}</td>
+                <td>{{ med.food_relation }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div>No medicines prescribed.</div>
+        {% endif %}
+    </div>
+    <div class="section">
+        <div class="section-title">Tests</div>
+        {% if prescription.tests.all %}
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Priority</th>
+                <th>Notes</th>
+            </tr>
+            {% for test in prescription.tests.all %}
+            <tr>
+                <td>{{ test.test_type.name }}</td>
+                <td>{{ test.priority }}</td>
+                <td>{{ test.notes }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div>No tests prescribed.</div>
+        {% endif %}
+    </div>
+</body>
+</html> 
