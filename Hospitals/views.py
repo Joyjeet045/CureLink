@@ -34,6 +34,8 @@ from django.http import JsonResponse
 import uuid
 import subprocess
 import json
+import sys
+import os
 
 from django import forms
 
@@ -684,17 +686,114 @@ def toggle_video_online(request):
 @login_required
 def submit_symptoms(request):
     if request.method == "POST":
+        symptoms = request.POST.get('symptoms', '')
+        if not symptoms:
+            return JsonResponse({"success": False, "error": "Symptoms are required"}, status=400)
+        
+        # Create video appointment
         appointment = VideoAppointment.objects.create(
-            patient=request.user
+            patient=request.user,
+            status='pending'
         )
-        return JsonResponse({"success": True, "room_id": appointment.id})
-    return JsonResponse({"success": False}, status=400)
+        
+        # Run predictor to get specialties
+        try:
+            # Run the predictor script with symptoms as argument
+            result = subprocess.run([
+                sys.executable, 'predictor.py', symptoms
+            ], capture_output=True, text=True, cwd=os.getcwd())
+            
+            if result.returncode == 0:
+                # Parse the output to get specialties - now predictor outputs only specialties
+                output = result.stdout.strip()
+                if output and output != "No relevant specialties found.":
+                    specialties = [s.strip() for s in output.split(',')]
+                else:
+                    # Fallback: use all departments if no specific specialties found
+                    specialties = doctor_departments
+                
+                # Find online doctors in the matching specialties
+                matching_doctors = Doctor.objects.filter(
+                    department__in=specialties,
+                    video_online=True
+                )
+                
+                # Send socket messages to matching doctors
+                channel_layer = get_channel_layer()
+                for doctor in matching_doctors:
+                    async_to_sync(channel_layer.group_send)(
+                        f'doctor_requests_{doctor.id}',
+                        {
+                            'type': 'send_request',
+                            'appointment_id': appointment.id,
+                            'patient_name': f"{request.user.first_name} {request.user.last_name}",
+                            'symptoms': symptoms,
+                            'specialties': specialties
+                        }
+                    )
+                
+                return JsonResponse({
+                    "success": True, 
+                    "room_id": appointment.id,
+                    "specialties": specialties,
+                    "doctors_count": matching_doctors.count()
+                })
+            else:
+                # Fallback if predictor fails
+                matching_doctors = Doctor.objects.filter(video_online=True)
+                channel_layer = get_channel_layer()
+                for doctor in matching_doctors:
+                    async_to_sync(channel_layer.group_send)(
+                        f'doctor_requests_{doctor.id}',
+                        {
+                            'type': 'send_request',
+                            'appointment_id': appointment.id,
+                            'patient_name': f"{request.user.first_name} {request.user.last_name}",
+                            'symptoms': symptoms,
+                            'specialties': doctor_departments
+                        }
+                    )
+                
+                return JsonResponse({
+                    "success": True, 
+                    "room_id": appointment.id,
+                    "specialties": doctor_departments,
+                    "doctors_count": matching_doctors.count()
+                })
+                
+        except Exception as e:
+            # Fallback if any error occurs
+            matching_doctors = Doctor.objects.filter(video_online=True)
+            channel_layer = get_channel_layer()
+            for doctor in matching_doctors:
+                async_to_sync(channel_layer.group_send)(
+                    f'doctor_requests_{doctor.id}',
+                    {
+                        'type': 'send_request',
+                        'appointment_id': appointment.id,
+                        'patient_name': f"{request.user.first_name} {request.user.last_name}",
+                        'symptoms': symptoms,
+                        'specialties': doctor_departments
+                    }
+                )
+            
+            return JsonResponse({
+                "success": True, 
+                "room_id": appointment.id,
+                "specialties": doctor_departments,
+                "doctors_count": matching_doctors.count()
+            })
+    
+    return JsonResponse({"success": False, "error": "Invalid request method"}, status=400)
 
 @login_required
 def video_consultation(request, room_id=None):
     appointment = None
     if room_id:
         appointment = VideoAppointment.objects.filter(id=room_id).first()
+        if not appointment:
+            messages.error(request, 'Appointment not found.')
+            return redirect('home')
     return render(request, 'Hospital/video_consultation.html', {
         'room_id': room_id,
         'appointment': appointment,
@@ -1254,6 +1353,49 @@ def add_test_for_hospital(request):
         'form': form,
         'hospital': hospital,
     })
+
+@login_required
+def doctor_requests_page(request):
+    """View for doctors to see incoming symptom-based requests"""
+    if not hasattr(request.user, 'doctor_profile'):
+        messages.error(request, 'Access denied. Only doctors can view this page.')
+        return redirect('home')
+    
+    return render(request, 'Hospital/doctor_requests.html')
+
+@login_required
+def update_appointment_status(request):
+    """Update video appointment status"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            appointment_id = data.get('appointment_id')
+            status = data.get('status')
+            
+            appointment = VideoAppointment.objects.get(id=appointment_id)
+            appointment.status = status
+            if status == 'ended':
+                appointment.end_time = datetime.now()
+            appointment.save()
+            
+            return JsonResponse({'success': True})
+        except (VideoAppointment.DoesNotExist, json.JSONDecodeError, KeyError):
+            return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+    
+    return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+
+@login_required
+def get_appointment_status(request, appointment_id):
+    """Get appointment status for dynamic updates"""
+    try:
+        appointment = VideoAppointment.objects.get(id=appointment_id)
+        return JsonResponse({
+            'status': appointment.status,
+            'doctor_name': appointment.doctor.get_name if appointment.doctor else None,
+            'patient_name': f"{appointment.patient.first_name} {appointment.patient.last_name}" if appointment.patient else None
+        })
+    except VideoAppointment.DoesNotExist:
+        return JsonResponse({'error': 'Appointment not found'}, status=404)
 
 @login_required
 def approve_doctor_request(request, request_id):

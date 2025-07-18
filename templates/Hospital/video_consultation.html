@@ -12,6 +12,14 @@
         .video-container { display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; margin-top: 40px; }
         .video-box { background: #fff; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); padding: 24px; width: 60%; display: flex; flex-direction: column; align-items: center; }
         .video-box video { width: 100%; border-radius: 12px; background: #222; }
+        .video-label { 
+            font-size: 14px; 
+            font-weight: 500; 
+            color: #666; 
+            margin-bottom: 8px; 
+            text-align: center; 
+        }
+
         .chat-box { background: #fff; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); padding: 24px; width: 35%; display: flex; flex-direction: column; height: 500px; }
         .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 16px; display: flex; flex-direction: column; }
         .chat-bubble {
@@ -55,21 +63,60 @@
     <div class="container video-container">
         <div class="video-box">
             <h4>Video Consultation</h4>
-            {% if consultation %}
+            {% if appointment %}
                 <div class="alert alert-info">
-                    <b>Patient:</b> {{ consultation.patient.user.username }}<br>
-                    <b>Department:</b> {{ consultation.department }}<br>
-                    <b>Requested at:</b> {{ consultation.created_at }}<br>
-                    {% if user_role == 'doctor' and not consultation.accepted_by %}
-                        <button class="btn btn-success mt-2" id="acceptRequestBtn">Accept Consultation</button>
-                    {% elif user_role == 'doctor' and consultation.accepted_by %}
-                        <span class="badge bg-success">Accepted</span>
+                    {% if user.profile.role == 'doctor' %}
+                        <b>Patient:</b> {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}<br>
+                        <b>Status:</b> 
+                        {% if appointment.status == 'pending' %}
+                            <span class="badge bg-warning">Waiting for doctor</span>
+                        {% elif appointment.status == 'active' %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Ended</span>
+                        {% endif %}
+                    {% else %}
+                        <b>Doctor:</b> 
+                        {% if appointment.doctor %}
+                            Dr. {{ appointment.doctor.get_name }}
+                        {% else %}
+                            <span class="text-muted">Waiting for doctor to join...</span>
+                        {% endif %}
+                        <br>
+                        <b>Status:</b> 
+                        {% if appointment.status == 'pending' %}
+                            <span class="badge bg-warning">Waiting for doctor</span>
+                        {% elif appointment.status == 'active' %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Ended</span>
+                        {% endif %}
                     {% endif %}
+                    <br>
+                    <b>Room ID:</b> {{ room_id }}
                 </div>
             {% endif %}
+            <div class="video-label">{% if user.profile.role == 'doctor' %}Doctor (You){% else %}Patient (You){% endif %}</div>
             <video id="localVideo" autoplay muted playsinline></video>
-            <video id="remoteVideo" autoplay playsinline style="margin-top: 16px;"></video>
+            <div class="video-label" style="margin-top: 16px;">{% if user.profile.role == 'doctor' %}Patient{% else %}Doctor{% endif %}</div>
+            <video id="remoteVideo" autoplay playsinline style="margin-top: 8px;"></video>
             <div class="status-bar" id="connectionStatus">Connecting...</div>
+            
+            <!-- Test Mode Controls (only show on localhost) -->
+            {% if request.get_host == 'localhost:8000' or request.get_host == '127.0.0.1:8000' %}
+            <div class="d-flex justify-content-center mt-2 mb-3">
+                <button class="btn btn-warning btn-sm mx-2" id="testModeBtn">
+                    <i class="fas fa-video"></i> Enable Test Mode
+                </button>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="testModeCheck">
+                    <label class="form-check-label" for="testModeCheck">
+                        Single Device Test
+                    </label>
+                </div>
+            </div>
+            {% endif %}
+            
             <div class="d-flex justify-content-center mt-3">
                 <button class="btn btn-danger mx-2" id="endCallBtn"><i class="fas fa-phone-slash"></i> End Call</button>
             </div>
@@ -103,12 +150,35 @@
         const remoteVideo = document.getElementById('remoteVideo');
         const connectionStatus = document.getElementById('connectionStatus');
 
+        let testModeEnabled = false;
+
         async function startLocalVideo() {
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 localVideo.srcObject = localStream;
+                connectionStatus.textContent = 'Local video started. Waiting for connection...';
             } catch (e) {
                 connectionStatus.textContent = 'Could not access camera/mic: ' + e;
+            }
+        }
+
+        function enableTestMode() {
+            if (localStream) {
+                try {
+                    // Create a new stream for the remote video
+                    const remoteStream = new MediaStream();
+                    localStream.getTracks().forEach(track => {
+                        remoteStream.addTrack(track.clone());
+                    });
+                    remoteVideo.srcObject = remoteStream;
+                    connectionStatus.textContent = 'Test mode enabled: Both videos show local stream';
+                    testModeEnabled = true;
+                } catch (cloneError) {
+                    // Fallback: use the same stream
+                    remoteVideo.srcObject = localStream;
+                    connectionStatus.textContent = 'Test mode enabled: Using same stream for both videos';
+                    testModeEnabled = true;
+                }
             }
         }
 
@@ -211,39 +281,88 @@
             // Optionally show chat disconnected status
         };
 
+        // Function to update appointment status display
+        function updateAppointmentStatus() {
+            fetch(`/get-appointment-status/{{ room_id }}/`)
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.querySelector('.alert.alert-info');
+                    if (statusElement) {
+                        const isDoctor = {% if user.profile.role == 'doctor' %}true{% else %}false{% endif %};
+                        let statusHtml = '';
+                        
+                        if (isDoctor) {
+                            statusHtml = `
+                                <b>Patient:</b> ${data.patient_name}<br>
+                                <b>Status:</b> 
+                                ${data.status === 'pending' ? '<span class="badge bg-warning">Waiting for doctor</span>' : 
+                                  data.status === 'active' ? '<span class="badge bg-success">Active</span>' : 
+                                  '<span class="badge bg-secondary">Ended</span>'}
+                            `;
+                        } else {
+                            statusHtml = `
+                                <b>Doctor:</b> 
+                                ${data.doctor_name ? 'Dr. ' + data.doctor_name : '<span class="text-muted">Waiting for doctor to join...</span>'}<br>
+                                <b>Status:</b> 
+                                ${data.status === 'pending' ? '<span class="badge bg-warning">Waiting for doctor</span>' : 
+                                  data.status === 'active' ? '<span class="badge bg-success">Active</span>' : 
+                                  '<span class="badge bg-secondary">Ended</span>'}
+                            `;
+                        }
+                        statusHtml += `<br><b>Room ID:</b> {{ room_id }}`;
+                        statusElement.innerHTML = statusHtml;
+                    }
+                })
+                .catch(error => console.error('Error updating status:', error));
+        }
+
+        // Update status every 2 seconds
+        const statusInterval = setInterval(updateAppointmentStatus, 2000);
+
+        // Test mode controls
+        const testModeBtn = document.getElementById('testModeBtn');
+        const testModeCheck = document.getElementById('testModeCheck');
+        
+        if (testModeBtn) {
+            testModeBtn.onclick = function() {
+                enableTestMode();
+            };
+        }
+        
+        if (testModeCheck) {
+            testModeCheck.onchange = function() {
+                if (this.checked) {
+                    enableTestMode();
+                } else {
+                    // Disable test mode - clear remote video
+                    remoteVideo.srcObject = null;
+                    connectionStatus.textContent = 'Test mode disabled. Waiting for real connection...';
+                    testModeEnabled = false;
+                }
+            };
+        }
+
         document.getElementById('endCallBtn').onclick = function() {
             if (peerConnection) peerConnection.close();
             signalingSocket.close();
             chatSocket.close();
+            clearInterval(statusInterval);
+            
+            // Update appointment status to ended
+            fetch('/update-appointment-status/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    appointment_id: '{{ room_id }}',
+                    status: 'ended'
+                })
+            });
+            
             window.close();
         };
-
-    // Accept consultation request (doctor only)
-    document.addEventListener('DOMContentLoaded', function() {
-        var acceptBtn = document.getElementById('acceptRequestBtn');
-        if (acceptBtn) {
-            acceptBtn.onclick = function() {
-                fetch('/accept_video_request/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ room_id: '{{ consultation.room_id }}' })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        acceptBtn.disabled = true;
-                        acceptBtn.textContent = 'Accepted';
-                        location.reload();
-                    } else {
-                        alert('Could not accept request.');
-                    }
-                });
-            };
-        }
-    });
     </script>
 </body>
 </html> 

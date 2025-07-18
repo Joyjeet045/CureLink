@@ -57,7 +57,8 @@ dimension = embeddings.shape[1]
 index = faiss.IndexFlatIP(dimension)
 index.add(embeddings)
 
-print("✅ FAISS index ready with", len(canonical_texts), "canonical symptom phrases.")
+# Remove the print statement
+# print("FAISS index ready with", len(canonical_texts), "canonical symptom phrases.")
 
 def retrieve_top_symptoms(user_input, top_k=5):
     query_embedding = model.encode([user_input], normalize_embeddings=True)
@@ -135,23 +136,17 @@ if __name__ == "__main__":
         user_text = sys.argv[1]
     else:
         user_text = "My vision has been getting blurry for a few days, I also have headaches, sometimes I feel pressure behind my eyes and a bit of dizziness."
+    
     retrieved = retrieve_top_symptoms(user_text)
-    print("Top retrieved matches:")
-    for r in retrieved:
-        print("-", r)
-
+    
     filtered = []
     for candidate in retrieved:
         if correct_relevance(user_text, candidate):
             filtered.append(candidate)
+    
     if not filtered:
-        print("❌ No relevant specialties found.")
+        print("No relevant specialties found.")
     else:
-        specialties = aggregate_specialties(filtered)
-        print("\nAggregated specialties:")
-        for s, score in specialties:
-            print(f"- {s}: {score:.5f}")
-
         ranked = rank_specialties(user_text, filtered)
-        print("\nLLM refined ranking:")
+        # Return only the specialties, nothing else
         print(ranked)

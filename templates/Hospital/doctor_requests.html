@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+.request-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.request-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.patient-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.patient-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    margin-right: 15px;
+}
+
+.patient-details h5 {
+    margin: 0;
+    color: #333;
+    font-weight: 600;
+}
+
+.patient-details p {
+    margin: 5px 0 0 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.symptoms-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
+
+.symptoms-section h6 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-weight: 600;
+}
+
+.symptoms-text {
+    color: #6c757d;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.specialties-section {
+    margin-bottom: 20px;
+}
+
+.specialty-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 2px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-join {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-join:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+    color: white;
+}
+
+.btn-decline {
+    background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-decline:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+    color: white;
+}
+
+.no-requests {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.no-requests i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: #dee2e6;
+}
+
+
+
+.request-timer {
+    font-size: 12px;
+    color: #dc3545;
+    font-weight: 500;
+    margin-top: 5px;
+}
+</style>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-stethoscope me-2"></i>
+                    Incoming Requests
+                </h2>
+            </div>
+            
+            <div id="requests-container">
+                <div class="no-requests">
+                    <i class="fas fa-bell-slash"></i>
+                    <h4>No Active Requests</h4>
+                    <p>When patients submit symptoms, matching requests will appear here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let socket = null;
+let requestTimers = {};
+
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/doctor_requests/`;
+    
+    socket = new WebSocket(wsUrl);
+    
+    socket.onopen = function(e) {
+        // WebSocket connected
+    };
+    
+    socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleWebSocketMessage(data);
+    };
+    
+    socket.onclose = function(e) {
+        // Try to reconnect after 5 seconds
+        setTimeout(connectWebSocket, 5000);
+    };
+    
+    socket.onerror = function(e) {
+        // WebSocket error
+    };
+}
+
+
+
+function handleWebSocketMessage(data) {
+    if (data.type === 'symptom_request') {
+        addRequestCard(data);
+    } else if (data.type === 'request_accepted') {
+        removeRequestCard(data.appointment_id);
+    } else if (data.type === 'request_declined') {
+        removeRequestCard(data.appointment_id);
+    }
+}
+
+function addRequestCard(data) {
+    const container = document.getElementById('requests-container');
+    
+    // Remove the "no requests" message if it exists
+    const noRequests = container.querySelector('.no-requests');
+    if (noRequests) {
+        noRequests.remove();
+    }
+    
+    const requestCard = document.createElement('div');
+    requestCard.className = 'request-card';
+    requestCard.id = `request-${data.appointment_id}`;
+    
+    const specialtiesHtml = data.specialties.map(specialty => 
+        `<span class="specialty-badge">${specialty}</span>`
+    ).join('');
+    
+    requestCard.innerHTML = `
+        <div class="patient-info">
+            <div class="patient-avatar">
+                ${data.patient_name.charAt(0).toUpperCase()}
+            </div>
+            <div class="patient-details">
+                <h5>${data.patient_name}</h5>
+                <p>Request ID: #${data.appointment_id}</p>
+                <div class="request-timer" id="timer-${data.appointment_id}">Just received</div>
+            </div>
+        </div>
+        
+        <div class="symptoms-section">
+            <h6><i class="fas fa-notes-medical me-2"></i>Symptoms</h6>
+            <p class="symptoms-text">${data.symptoms}</p>
+        </div>
+        
+        <div class="specialties-section">
+            <h6><i class="fas fa-user-md me-2"></i>Matching Specialties</h6>
+            <div>${specialtiesHtml}</div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="btn btn-join" onclick="joinRequest(${data.appointment_id})">
+                <i class="fas fa-video me-2"></i>Join Consultation
+            </button>
+            <button class="btn btn-decline" onclick="declineRequest(${data.appointment_id})">
+                <i class="fas fa-times me-2"></i>Decline
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(requestCard);
+    
+    // Start timer for this request
+    startRequestTimer(data.appointment_id);
+}
+
+function removeRequestCard(appointmentId) {
+    const card = document.getElementById(`request-${appointmentId}`);
+    if (card) {
+        card.remove();
+        
+        // Stop timer
+        if (requestTimers[appointmentId]) {
+            clearInterval(requestTimers[appointmentId]);
+            delete requestTimers[appointmentId];
+        }
+        
+        // Show "no requests" message if no more requests
+        const container = document.getElementById('requests-container');
+        if (container.children.length === 0) {
+            container.innerHTML = `
+                <div class="no-requests">
+                    <i class="fas fa-bell-slash"></i>
+                    <h4>No Active Requests</h4>
+                    <p>When patients submit symptoms, matching requests will appear here.</p>
+                </div>
+            `;
+        }
+    }
+}
+
+function startRequestTimer(appointmentId) {
+    let seconds = 0;
+    const timerElement = document.getElementById(`timer-${appointmentId}`);
+    
+    requestTimers[appointmentId] = setInterval(() => {
+        seconds++;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        
+        if (minutes > 0) {
+            timerElement.textContent = `${minutes}m ${remainingSeconds}s ago`;
+        } else {
+            timerElement.textContent = `${remainingSeconds}s ago`;
+        }
+        
+        // Auto-decline after 5 minutes
+        if (seconds >= 300) {
+            declineRequest(appointmentId);
+        }
+    }, 1000);
+}
+
+function joinRequest(appointmentId) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'join_request',
+            appointment_id: appointmentId
+        }));
+        
+        // Redirect to video consultation
+        window.location.href = `/video-consultation/${appointmentId}/`;
+    }
+}
+
+function declineRequest(appointmentId) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'decline_request',
+            appointment_id: appointmentId
+        }));
+    }
+    
+    removeRequestCard(appointmentId);
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    connectWebSocket();
+});
+
+// Clean up timers when page unloads
+window.addEventListener('beforeunload', function() {
+    Object.values(requestTimers).forEach(timer => clearInterval(timer));
+});
+</script>
+{% endblock %} 

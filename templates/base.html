@@ -62,11 +62,14 @@
           </ul>
           <div class="d-flex align-items-center ms-auto">
             {% if user.is_authenticated and user.profile.role == 'doctor' %}
+              <a href="{% url 'doctor_requests' %}" class="btn btn-outline-info mx-1">
+                <i class="fas fa-bell me-1"></i>Requests
+              </a>
               <button id="online-toggle-btn" class="btn btn-outline-success mx-1">Go Online</button>
               <script>
               document.addEventListener('DOMContentLoaded', function() {
                 var btn = document.getElementById('online-toggle-btn');
-                fetch('/api/doctor_video_online_state/')
+                fetch('{% url "doctor_video_online_state" %}')
                   .then(response => response.json())
                   .then(data => {
                     var isOnline = data.online;
@@ -93,13 +96,13 @@
               });
               </script>
             {% endif %}
-            <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative">
-              VIDEO CONSULTATION
-              <span id="online-doctor-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                0
-              </span>
-            </a>
             {% if not user.is_authenticated or user.profile.role != 'doctor' %}
+              <a href="#" id="video-consult-btn" class="btn btn-outline-danger mx-1 position-relative">
+                VIDEO CONSULTATION
+                <span id="online-doctor-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                  0
+                </span>
+              </a>
               <a href="{% url 'medicines' %}" class="btn btn-outline-primary mx-1">MEDICINES</a>
               <a href="{% url 'tests_page' %}" class="btn btn-outline-success mx-1">TESTS</a>
             {% endif %}
@@ -145,33 +148,7 @@
   };
 })();
 </script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var toggle = document.getElementById('navbarVideoOnlineToggle');
-  var statusText = document.getElementById('navbarVideoOnlineStatus');
-  if (toggle) {
-    toggle.addEventListener('change', function() {
-      fetch('{% url "toggle_video_online" %}', {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': '{{ csrf_token }}',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ online: toggle.checked })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.video_online) {
-          statusText.textContent = 'Online';
-        } else {
-          statusText.textContent = 'Offline';
-        }
-        location.reload();
-      });
-    });
-  }
-});
-</script>
+
 <!-- Video Consultation Modal -->
 <div class="modal fade" id="videoConsultModal" tabindex="-1" aria-labelledby="videoConsultModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -218,13 +195,117 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          window.open('/video-consultation/' + data.room_id + '/', '_blank', 'width=1200,height=800');
+          // Show waiting message instead of immediately opening room
+          var modal = bootstrap.Modal.getInstance(document.getElementById('videoConsultModal'));
+          modal.hide();
+          
+          // Show waiting notification
+          showWaitingNotification(data.room_id, data.doctors_count, data.specialties);
         } else {
-          alert('No matching department founvided.');
+          alert('Error: ' + (data.error || 'No matching doctors found.'));
         }
       });
     };
   }
 });
+</script>
+
+<!-- Patient Waiting Functions -->
+<script>
+// Global variables for patient waiting
+let patientSocket = null;
+let waitingRoomId = null;
+
+function showWaitingNotification(roomId, doctorsCount, specialties) {
+  waitingRoomId = roomId;
+  
+  // Create waiting notification
+  const notification = document.createElement('div');
+  notification.id = 'waiting-notification';
+  notification.className = 'position-fixed top-50 start-50 translate-middle bg-white border rounded shadow-lg p-4';
+  notification.style.zIndex = '9999';
+  notification.style.minWidth = '400px';
+  
+  notification.innerHTML = `
+    <div class="text-center">
+      <div class="spinner-border text-primary mb-3" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <h5 class="mb-3">Waiting for Doctor</h5>
+      <p class="text-muted mb-2">Your request has been sent to ${doctorsCount} online doctor(s)</p>
+      <p class="text-muted mb-3">Matching specialties: ${specialties.join(', ')}</p>
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        You will be automatically redirected when a doctor accepts your request.
+      </div>
+      <button class="btn btn-outline-secondary btn-sm" onclick="cancelRequest()">
+        <i class="fas fa-times me-1"></i>Cancel Request
+      </button>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Connect to WebSocket to listen for doctor acceptance
+  connectPatientWebSocket(roomId);
+}
+
+function connectPatientWebSocket(roomId) {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}/ws/patient_waiting/${roomId}/`;
+  
+  patientSocket = new WebSocket(wsUrl);
+  
+  patientSocket.onopen = function() {
+    console.log('Patient WebSocket connected for room:', roomId);
+  };
+  
+  patientSocket.onmessage = function(event) {
+    console.log('Patient WebSocket received message:', event.data);
+    const data = JSON.parse(event.data);
+    if (data.type === 'doctor_accepted') {
+      console.log('Doctor accepted request, redirecting to video room');
+      hideWaitingNotification();
+      window.location.href = '/video-consultation/' + roomId + '/';
+    } else if (data.type === 'request_declined') {
+      console.log('Request declined by all doctors');
+      hideWaitingNotification();
+      alert('No doctors are available at the moment. Please try again later.');
+    }
+  };
+  
+  patientSocket.onclose = function() {
+    console.log('Patient WebSocket disconnected for room:', roomId);
+  };
+  
+  patientSocket.onerror = function(error) {
+    console.log('Patient WebSocket error:', error);
+  };
+}
+
+function hideWaitingNotification() {
+  console.log('Hiding waiting notification');
+  const notification = document.getElementById('waiting-notification');
+  if (notification) {
+    notification.remove();
+  }
+  if (patientSocket) {
+    console.log('Closing patient WebSocket connection');
+    patientSocket.close();
+    patientSocket = null;
+  }
+  waitingRoomId = null;
+}
+
+function cancelRequest() {
+  if (patientSocket && waitingRoomId) {
+    const cancelMessage = JSON.stringify({
+      type: 'cancel_request',
+      room_id: waitingRoomId
+    });
+    patientSocket.send(cancelMessage);
+  }
+  hideWaitingNotification();
+}
 </script>
 </html>
