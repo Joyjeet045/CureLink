@@ -1076,23 +1076,29 @@ def process_medicine_payment(request):
             # Calculate total amount
             total_amount = 0
             cart_items = []
-            
+            missing_proofs = []
             for medicine_id, item_data in medicine_cart.items():
                 medicine = Medicine.objects.get(id=medicine_id)
                 item_total = item_data['price'] * item_data['quantity']
                 total_amount += item_total
-                
+                proof_file = None
+                if medicine.requires_prescription:
+                    proof_file = request.FILES.get(f'prescription_proof_{medicine.id}')
+                    if not proof_file:
+                        missing_proofs.append(medicine.name)
                 cart_items.append({
                     'medicine': medicine,
                     'quantity': item_data['quantity'],
                     'price': item_data['price'],
-                    'total': item_total
+                    'total': item_total,
+                    'proof_file': proof_file
                 })
-            
+            if missing_proofs:
+                messages.error(request, f"Prescription proof required for: {', '.join(missing_proofs)}.")
+                return redirect('medicine_cart_checkout')
             # Calculate expected delivery date
             from datetime import date, timedelta
             delivery_date = date.today() + timedelta(days=4)
-            
             # Create medicine order
             order = MedicineOrder.objects.create(
                 user=request.user,
@@ -1102,27 +1108,23 @@ def process_medicine_payment(request):
                 total_amount=total_amount,
                 payment_status=True  # Mark as paid
             )
-            
             # Create order items and update stock
             for item in cart_items:
-                MedicineOrderItem.objects.create(
+                order_item = MedicineOrderItem.objects.create(
                     order=order,
                     medicine=item['medicine'],
                     quantity=item['quantity'],
                     price_per_unit=item['price'],
-                    total_price=item['total']
+                    total_price=item['total'],
+                    prescription_proof=item['proof_file']
                 )
-                
                 # Update medicine stock
                 item['medicine'].stock -= item['quantity']
                 item['medicine'].save()
-            
             # Clear cart
             request.session['medicine_cart'] = {}
-            
             messages.success(request, f"Order placed successfully! Order #: {order.id}")
             return redirect('user_dashboard')
-            
     except Exception as e:
         messages.error(request, f"Error processing order: {str(e)}")
         return redirect('medicine_cart_checkout')

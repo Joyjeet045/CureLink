@@ -489,6 +489,7 @@ class MedicineOrderItem(models.Model):
     quantity = models.PositiveIntegerField()
     price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    prescription_proof = models.FileField(upload_to='medicine_prescription_proofs/', blank=True, null=True)
     
     def save(self, *args, **kwargs):
         if not self.total_price:
