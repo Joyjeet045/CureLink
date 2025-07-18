@@ -125,6 +125,10 @@
             <h5>Chat</h5>
             <div class="chat-messages" id="chatMessages"></div>
             <form class="chat-input" id="chatForm" autocomplete="off">
+                <button type="button" id="attachBtn" title="Send Attachment" style="border-radius:8px 0 0 8px; border:1px solid #007bff; background:#e3f2fd; padding:8px 16px; margin-right:2px; color:#007bff; font-size:22px; display:flex; align-items:center; justify-content:center;">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <input type="file" id="fileInput" accept=".pdf,image/jpeg,image/png" style="display:none;" />
                 <input type="text" id="chatInput" placeholder="Type a message..." required />
                 <button type="submit"><i class="fas fa-paper-plane"></i></button>
             </form>
@@ -261,11 +265,70 @@
             }
         };
 
+        const attachBtn = document.getElementById('attachBtn');
+        const fileInput = document.getElementById('fileInput');
+        attachBtn.onclick = function(e) {
+            e.preventDefault();
+            fileInput.click();
+        };
+        fileInput.onchange = function() {
+            const file = fileInput.files[0];
+            if (!file) return;
+            const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Only PDF, JPEG, PNG files are allowed.');
+                fileInput.value = '';
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', file);
+            fetch(`/upload-video-attachment/${roomName}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Send a special chat message with attachment info
+                    chatSocket.send(JSON.stringify({
+                        'attachment': data.attachment,
+                        'sender': currentUser
+                    }));
+                    // Removed immediate displayAttachment to avoid duplicate
+                } else {
+                    alert(data.error || 'Upload failed.');
+                }
+                fileInput.value = '';
+            })
+            .catch(() => {
+                alert('Upload failed.');
+                fileInput.value = '';
+            });
+        };
+        function displayAttachment(attachment, isSender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-bubble ' + (isSender ? 'sender' : 'receiver');
+            let content = '';
+            if (attachment.content_type.startsWith('image/')) {
+                content = `<a href="${attachment.url}" target="_blank"><img src="${attachment.url}" style="max-width:120px;max-height:120px;border-radius:8px;" /></a>`;
+            } else if (attachment.content_type === 'application/pdf') {
+                content = `<a href="${attachment.url}" target="_blank"><i class="fas fa-file-pdf fa-2x text-danger"></i> ${attachment.filename.split('/').pop()}</a>`;
+            } else {
+                content = `<a href="${attachment.url}" target="_blank">${attachment.filename.split('/').pop()}</a>`;
+            }
+            content += `<div class="chat-meta">${isSender ? 'You' : attachment.sender} (file)</div>`;
+            msgDiv.innerHTML = content;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        // Extend chatSocket.onmessage to handle attachments
         chatSocket.onmessage = function(event) {
             const data = JSON.parse(event.data);
-            if (data.message) {
+            if (data.attachment) {
+                displayAttachment(data.attachment, data.sender === currentUser);
+            } else if (data.message) {
                 const msgDiv = document.createElement('div');
-                // Determine if the message is from the current user
                 const isSender = data.sender === currentUser;
                 msgDiv.className = 'chat-bubble ' + (isSender ? 'sender' : 'receiver');
                 msgDiv.innerHTML = `<span>${data.message}</span><div class="chat-meta">${isSender ? 'You' : data.sender || 'Other'}</div>`;

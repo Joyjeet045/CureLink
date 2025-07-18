@@ -576,3 +576,12 @@ class DoctorHospitalRequest(models.Model):
 
     def __str__(self):
         return f"{self.doctor} request for {self.hospital} (approved: {self.is_approved})"
+
+class VideoAppointmentAttachment(models.Model):
+    video_appointment = models.ForeignKey(VideoAppointment, on_delete=models.CASCADE, related_name='attachments')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    file = models.FileField(upload_to='video_attachments/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Attachment by {self.sender.username} for VideoAppointment {self.video_appointment.id}"

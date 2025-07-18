@@ -2,7 +2,6 @@ from django.contrib import admin
 from django import forms
 from django.contrib.admin.sites import AlreadyRegistered, NotRegistered
 
-# Register your models here.
 from .models import Doctor,Hospital,Timing,Review,Appointment,Prescription,Medicine,Test,State,MedicineEntry, DoctorLeave, VideoAppointment, TestType, MedicineOrder, MedicineOrderItem, TestOrder, TestOrderItem, DoctorHospitalRequest
 
 @admin.register(Timing)

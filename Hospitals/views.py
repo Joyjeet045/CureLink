@@ -1,4 +1,3 @@
-# Standard Django and third-party imports
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core import serializers
 from django.db import transaction
@@ -42,6 +41,9 @@ from django.template.loader import render_to_string
 from django.http import HttpResponse
 import io
 from xhtml2pdf import pisa
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from .models import VideoAppointment, VideoAppointmentAttachment
 
 class AddTestForm(forms.Form):
     test_type = forms.ModelChoiceField(queryset=TestType.objects.all(), label="Test Type")
@@ -1617,5 +1619,38 @@ def video_prescription_pdf(request, video_appointment_id):
         response['Content-Disposition'] = f'attachment; filename=video_prescription_{video_appointment_id}.pdf'
         return response
     return HttpResponse('Error generating PDF', status=500)
+
+@csrf_exempt
+@require_POST
+def upload_video_attachment(request, video_appointment_id):
+    user = request.user
+    if not user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required.'}, status=403)
+    try:
+        video_appointment = VideoAppointment.objects.get(id=video_appointment_id)
+    except VideoAppointment.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Video appointment not found.'}, status=404)
+    file = request.FILES.get('file')
+    if not file:
+        return JsonResponse({'success': False, 'error': 'No file uploaded.'}, status=400)
+    allowed_types = ['application/pdf', 'image/jpeg', 'image/png']
+    if file.content_type not in allowed_types:
+        return JsonResponse({'success': False, 'error': 'Invalid file type.'}, status=400)
+    attachment = VideoAppointmentAttachment.objects.create(
+        video_appointment=video_appointment,
+        sender=user,
+        file=file
+    )
+    return JsonResponse({
+        'success': True,
+        'attachment': {
+            'id': attachment.id,
+            'url': attachment.file.url,
+            'filename': attachment.file.name,
+            'content_type': file.content_type,
+            'uploaded_at': attachment.uploaded_at,
+            'sender': user.username
+        }
+    })
 
 

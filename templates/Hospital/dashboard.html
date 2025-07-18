@@ -201,8 +201,6 @@
   }
 </style>
 
-<!-- Remove doctor-status from dashboard -->
-
 <div class="card mx-4 mx-md-5 shadow-5-strong" style="background: hsla(0, 0%, 100%, 0.8); backdrop-filter: blur(30px); position: relative;">
     <div class="card-body py-5 px-md-5">
         {% if is_doctor %}
@@ -312,7 +310,12 @@ input:checked + .slider:before {
                       <div class="d-flex align-items-center" style="gap: 10px;">
                         <a href="{% url 'cancel_appointment' appointment.id %}" class="btn btn-danger btn-sm" style="color: #fff;">Cancel</a>
                         <a href="{% url 'reschedule_appointment' appointment.id %}" class="btn btn-warning btn-sm" style="color: #fff;">Reschedule</a>
-                        <button class="btn btn-success btn-sm see-in-maps-btn ms-auto" data-hospital-location="{{ appointment.hospital.location }}" data-hospital-name="{{ appointment.hospital.name }}">See in Maps</button>
+                        <button class="btn btn-success btn-sm see-in-maps-btn ms-auto"
+                          data-hospital-lat="{{ appointment.hospital.latitude }}"
+                          data-hospital-lng="{{ appointment.hospital.longitude }}"
+                          data-hospital-name="{{ appointment.hospital.name }}">
+                          See in Maps
+                        </button>
                         {% if appointment.prescription %}
                           <button class="btn btn-primary btn-sm view-prescription-btn ms-2" data-appointment-id="{{ appointment.id }}">View Prescription</button>
                         {% endif %}
@@ -323,36 +326,6 @@ input:checked + .slider:before {
                     <p class="no-doctors-message">You don't have any upcoming appointments</p>
                   {% endif %}
                 {% endif %}
-                <!-- Upcoming Video Appointments -->
-                <h3 class="mb-4 text-center">Upcoming Video Appointments</h3>
-                {% if upcoming_video_appointments %}
-                  {% for vappt in upcoming_video_appointments %}
-                    <div class="appointment" style="border-left: 4px solid #007bff;">
-                      <p>Date: {{ vappt.start_time|date:"Y-m-d" }}</p>
-                      <p>Start Time: {{ vappt.start_time|time:"H:i" }}</p>
-                      <p>End Time: {{ vappt.end_time|time:"H:i" }}</p>
-                      {% if is_doctor %}
-                        <p>Patient: {{ vappt.patient.get_full_name|default:vappt.patient.username }}</p>
-                        <div class="d-flex align-items-center" style="gap: 10px;">
-                          <a class="btn btn-info btn-sm ms-auto" href="{% url 'add_video_prescription' vappt.id %}">
-                            {% if vappt.prescription %}Edit Prescription{% else %}Add Prescription{% endif %}
-                          </a>
-                        </div>
-                      {% else %}
-                        <p>Doctor: {{ vappt.doctor.get_name }}</p>
-                        <div class="d-flex align-items-center" style="gap: 10px;">
-                          {% if vappt.prescription %}
-                            <button class="btn btn-primary btn-sm view-video-prescription-btn ms-auto" data-video-appointment-id="{{ vappt.id }}">View Prescription</button>
-                          {% endif %}
-                        </div>
-                      {% endif %}
-                      <p>Status: <span class="{% if vappt.status == 'active' %}status-true{% elif vappt.status == 'pending' %}status-false{% else %}status-past{% endif %}">{{ vappt.get_status_display }}</span></p>
-                    </div>
-                  {% endfor %}
-                {% else %}
-                  <p class="no-doctors-message">You don't have any upcoming video appointments.</p>
-                {% endif %}
-
                 <!-- Past Appointments -->
                 <h3 class="mb-4 text-center">Past Appointments</h3>
                 {% if is_doctor %}
@@ -412,6 +385,22 @@ input:checked + .slider:before {
                         </div>
                       {% endif %}
                       <p>Status: <span class="status-past">{{ vappt.get_status_display }}</span></p>
+                      {% if vappt.attachments.all %}
+                        <div class="mt-2"><b>Attachments:</b>
+                          <ul style="padding-left: 18px;">
+                            {% for att in vappt.attachments.all %}
+                              <li>
+                                {% if att.file.name|lower|slice:'-4:' == '.pdf' %}
+                                  <a href="{{ att.file.url }}" target="_blank"><i class="fas fa-file-pdf text-danger"></i> {{ att.file.name|slice:"20:" }}</a>
+                                {% else %}
+                                  <a href="{{ att.file.url }}" target="_blank"><img src="{{ att.file.url }}" style="max-width:60px;max-height:60px;border-radius:6px;vertical-align:middle;" /></a>
+                                {% endif %}
+                                <span class="text-muted" style="font-size:12px;">by {{ att.sender.username }}</span>
+                              </li>
+                            {% endfor %}
+                          </ul>
+                        </div>
+                      {% endif %}
                     </div>
                   {% endfor %}
                 {% else %}
@@ -685,9 +674,10 @@ document.addEventListener('DOMContentLoaded', function() {
         navigator.geolocation.getCurrentPosition(function(position) {
           var userLat = position.coords.latitude;
           var userLng = position.coords.longitude;
-          var hospitalLocation = btn.getAttribute('data-hospital-location');
+          var hospitalLat = parseFloat(btn.getAttribute('data-hospital-lat'));
+          var hospitalLng = parseFloat(btn.getAttribute('data-hospital-lng'));
           var hospitalName = btn.getAttribute('data-hospital-name');
-          pendingRoute = {userLat, userLng, hospitalLocation, hospitalName};
+          pendingRoute = {userLat, userLng, hospitalLat, hospitalLng, hospitalName};
           mapModal.show();
         }, function() {
           alert('Could not get your location.');
@@ -708,40 +698,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         var userLat = pendingRoute.userLat;
         var userLng = pendingRoute.userLng;
-        var hospitalLocation = pendingRoute.hospitalLocation;
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(hospitalLocation)}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data && data.length > 0) {
-              var hospitalLat = parseFloat(data[0].lat);
-              var hospitalLng = parseFloat(data[0].lon);
-              map = L.map('route-map').setView([userLat, userLng], 13);
-              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-              }).addTo(map);
-              routingControl = L.Routing.control({
-                waypoints: [
-                  L.latLng(userLat, userLng),
-                  L.latLng(hospitalLat, hospitalLng)
-                ],
-                routeWhileDragging: false,
-                show: true, 
-                addWaypoints: false,
-                draggableWaypoints: false,
-                fitSelectedRoutes: true,
-                showAlternatives: false
-              }).addTo(map);
-              routingControl.on('routesfound', function(e) {
-                var routes = e.routes;
-                var summary = routes[0].summary;
-                document.getElementById('route-details').innerHTML =
-                  `<b>Distance:</b> ${(summary.totalDistance / 1000).toFixed(2)} km<br>` +
-                  `<b>Estimated Time:</b> ${(summary.totalTime / 60).toFixed(0)} min`;
-              });
-            } else {
-              document.getElementById('route-details').innerHTML = 'Could not find hospital location.';
-            }
-          });
+        var hospitalLat = pendingRoute.hospitalLat;
+        var hospitalLng = pendingRoute.hospitalLng;
+        map = L.map('route-map').setView([userLat, userLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+        }).addTo(map);
+        routingControl = L.Routing.control({
+          waypoints: [
+            L.latLng(userLat, userLng),
+            L.latLng(hospitalLat, hospitalLng)
+          ],
+          routeWhileDragging: false,
+          show: true, 
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoutes: true,
+          showAlternatives: false
+        }).addTo(map);
+        routingControl.on('routesfound', function(e) {
+          var routes = e.routes;
+          var summary = routes[0].summary;
+          document.getElementById('route-details').innerHTML =
+            `<b>Distance:</b> ${(summary.totalDistance / 1000).toFixed(2)} km<br>` +
+            `<b>Estimated Time:</b> ${(summary.totalTime / 60).toFixed(0)} min`;
+        });
         pendingRoute = null;
       }, 200);
     }
