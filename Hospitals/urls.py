@@ -41,4 +41,5 @@ urlpatterns=[
   path('update-appointment-status/', views.update_appointment_status, name='update_appointment_status'),
   path('get-appointment-status/<int:appointment_id>/', views.get_appointment_status, name='get_appointment_status'),
   path('video-consultation/<int:room_id>/', views.video_consultation, name='video_consultation_room'),
+  path('test-report/<int:order_id>/', views.view_test_report, name='view_test_report'),
 ]

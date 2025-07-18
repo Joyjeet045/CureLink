@@ -1326,9 +1326,11 @@ def create_test_report(request, order_id):
             recipient_list = [order.user.email]
             # Send email with or without attachment
             if report.report_file:
+                import mimetypes
                 from django.core.mail import EmailMessage
+                content_type, _ = mimetypes.guess_type(report.report_file.name)
                 email = EmailMessage(subject, message, from_email, recipient_list)
-                email.attach(report.report_file.name, report.report_file.read(), report.report_file.file.content_type)
+                email.attach(report.report_file.name, report.report_file.read(), content_type or 'application/octet-stream')
                 email.send()
             else:
                 send_mail(subject, message, from_email, recipient_list)
@@ -1456,5 +1458,16 @@ def approve_doctor_request(request, request_id):
     req.doctor.hospitals.add(req.hospital)
     messages.success(request, f'Doctor {req.doctor.get_name} approved for {req.hospital.name}.')
     return redirect('hospital_admin_home')
+
+@login_required
+def view_test_report(request, order_id):
+    order = get_object_or_404(TestOrder, id=order_id)
+    if order.user != request.user:
+        return HttpResponse('Unauthorized', status=401)
+    report = getattr(order, 'report', None)
+    if not report:
+        messages.error(request, 'No report available for this order.')
+        return redirect('user_dashboard')
+    return render(request, 'Hospital/test_report.html', {'order': order, 'report': report})
 
 

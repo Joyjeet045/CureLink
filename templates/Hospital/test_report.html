@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="card shadow">
+    <div class="card-body">
+      <h2 class="fw-bold mb-4 text-info">Test Report for Order #{{ order.id }}</h2>
+      <p><strong>Test Date:</strong> {{ order.test_date|date:"F j, Y" }}</p>
+      <p><strong>Hospital:</strong> {{ order.hospital.name }}</p>
+      <hr>
+      <h4 class="mb-3">Findings</h4>
+      <div class="mb-3">
+        <strong>Positive Findings:</strong>
+        <div class="border rounded p-2 bg-light">{{ report.findings_positive|linebreaksbr|default:"-" }}</div>
+      </div>
+      <div class="mb-3">
+        <strong>Negative Findings:</strong>
+        <div class="border rounded p-2 bg-light">{{ report.findings_negative|linebreaksbr|default:"-" }}</div>
+      </div>
+      {% if report.report_file %}
+      <div class="mb-3">
+        <strong>Report File:</strong>
+        <a href="{{ report.report_file.url }}" class="btn btn-outline-primary" download>Download Report</a>
+      </div>
+      {% endif %}
+      <a href="{% url 'user_dashboard' %}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+    </div>
+  </div>
+</div>
+{% endblock %} 
