@@ -249,13 +249,40 @@ class Appointment(models.Model):
   class Meta:
     ordering = ['appointment_date', 'time']
 
+class VideoAppointment(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('active', 'Active'),
+        ('ended', 'Ended'),
+    ]
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='video_appointments', null=True, blank=True)
+    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_appointments')
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    def __str__(self):
+        return f"VideoAppointment: {self.patient.username} with Dr. {self.doctor.get_name if self.doctor else 'Unassigned'} ({self.status})"
+
 class Prescription(models.Model):
-    appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name='prescription')
+    appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name='prescription', null=True, blank=True)
+    video_appointment = models.OneToOneField('VideoAppointment', on_delete=models.CASCADE, related_name='prescription', null=True, blank=True)
     diagnosis = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if (self.appointment and self.video_appointment) or (not self.appointment and not self.video_appointment):
+            raise ValidationError('Prescription must be linked to either an Appointment or a VideoAppointment, not both or neither.')
+
     def __str__(self):
-        return f'Prescription for {self.appointment}'
+        if self.appointment:
+            return f'Prescription for {self.appointment}'
+        elif self.video_appointment:
+            return f'Prescription for Video {self.video_appointment}'
+        else:
+            return 'Prescription (unlinked)'
 
 class Medicine(models.Model):
     CURE_CHOICES = [
@@ -437,21 +464,6 @@ def check_user_double_booking(user, appointment_date, timing_start, timing_end, 
     
     return query.exists()
 
-class VideoAppointment(models.Model):
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('active', 'Active'),
-        ('ended', 'Ended'),
-    ]
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name='video_appointments', null=True, blank=True)
-    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_appointments')
-    start_time = models.DateTimeField(null=True, blank=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-
-    def __str__(self):
-        return f"VideoAppointment: {self.patient.username} with Dr. {self.doctor.get_name if self.doctor else 'Unassigned'} ({self.status})"
-
 
 
 class MedicineOrder(models.Model):
@@ -564,4 +576,3 @@ class DoctorHospitalRequest(models.Model):
 
     def __str__(self):
         return f"{self.doctor} request for {self.hospital} (approved: {self.is_approved})"
-

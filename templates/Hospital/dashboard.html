@@ -323,6 +323,36 @@ input:checked + .slider:before {
                     <p class="no-doctors-message">You don't have any upcoming appointments</p>
                   {% endif %}
                 {% endif %}
+                <!-- Upcoming Video Appointments -->
+                <h3 class="mb-4 text-center">Upcoming Video Appointments</h3>
+                {% if upcoming_video_appointments %}
+                  {% for vappt in upcoming_video_appointments %}
+                    <div class="appointment" style="border-left: 4px solid #007bff;">
+                      <p>Date: {{ vappt.start_time|date:"Y-m-d" }}</p>
+                      <p>Start Time: {{ vappt.start_time|time:"H:i" }}</p>
+                      <p>End Time: {{ vappt.end_time|time:"H:i" }}</p>
+                      {% if is_doctor %}
+                        <p>Patient: {{ vappt.patient.get_full_name|default:vappt.patient.username }}</p>
+                        <div class="d-flex align-items-center" style="gap: 10px;">
+                          <a class="btn btn-info btn-sm ms-auto" href="{% url 'add_video_prescription' vappt.id %}">
+                            {% if vappt.prescription %}Edit Prescription{% else %}Add Prescription{% endif %}
+                          </a>
+                        </div>
+                      {% else %}
+                        <p>Doctor: {{ vappt.doctor.get_name }}</p>
+                        <div class="d-flex align-items-center" style="gap: 10px;">
+                          {% if vappt.prescription %}
+                            <button class="btn btn-primary btn-sm view-video-prescription-btn ms-auto" data-video-appointment-id="{{ vappt.id }}">View Prescription</button>
+                          {% endif %}
+                        </div>
+                      {% endif %}
+                      <p>Status: <span class="{% if vappt.status == 'active' %}status-true{% elif vappt.status == 'pending' %}status-false{% else %}status-past{% endif %}">{{ vappt.get_status_display }}</span></p>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="no-doctors-message">You don't have any upcoming video appointments.</p>
+                {% endif %}
+
                 <!-- Past Appointments -->
                 <h3 class="mb-4 text-center">Past Appointments</h3>
                 {% if is_doctor %}
@@ -356,6 +386,36 @@ input:checked + .slider:before {
                   {% if past_appointments|length == 0 %}
                     <p class="no-doctors-message">You haven't consulted our doctors before</p>
                   {% endif %}
+                {% endif %}
+                
+                <!-- Past Video Appointments -->
+                <h3 class="mb-4 text-center">Past Video Appointments</h3>
+                {% if past_video_appointments %}
+                  {% for vappt in past_video_appointments %}
+                    <div class="appointment" style="border-left: 4px solid #bdbdbd;">
+                      <p>Date: {{ vappt.start_time|date:"Y-m-d" }}</p>
+                      <p>Start Time: {{ vappt.start_time|time:"H:i" }}</p>
+                      <p>End Time: {{ vappt.end_time|time:"H:i" }}</p>
+                      {% if is_doctor %}
+                        <p>Patient: {{ vappt.patient.get_full_name|default:vappt.patient.username }}</p>
+                        <div class="d-flex align-items-center" style="gap: 10px;">
+                          <a class="btn btn-info btn-sm ms-auto" href="{% url 'add_video_prescription' vappt.id %}">
+                            {% if vappt.prescription %}Edit Prescription{% else %}Add Prescription{% endif %}
+                          </a>
+                        </div>
+                      {% else %}
+                        <p>Doctor: {{ vappt.doctor.get_name }}</p>
+                        <div class="d-flex align-items-center" style="gap: 10px;">
+                          {% if vappt.prescription %}
+                            <button class="btn btn-primary btn-sm view-video-prescription-btn ms-auto" data-video-appointment-id="{{ vappt.id }}">View Prescription</button>
+                          {% endif %}
+                        </div>
+                      {% endif %}
+                      <p>Status: <span class="status-past">{{ vappt.get_status_display }}</span></p>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <p class="no-doctors-message">You don't have any past video appointments.</p>
                 {% endif %}
                 
                 <!-- Medicine Orders (only for regular users) -->
@@ -759,6 +819,81 @@ document.addEventListener('DOMContentLoaded', function() {
             const downloadBtn = document.getElementById('download-prescription-pdf');
             downloadBtn.style.display = 'inline-block';
             downloadBtn.href = `/prescription-pdf/${appointmentId}/`;
+          } else {
+            error.textContent = data.error || 'No prescription found.';
+            error.style.display = 'block';
+            document.getElementById('download-prescription-pdf').style.display = 'none';
+          }
+        })
+        .catch(err => {
+          loading.style.display = 'none';
+          error.textContent = 'Failed to fetch prescription details.';
+          error.style.display = 'block';
+        });
+    });
+  });
+
+  // Handler for video appointment prescription view
+  document.querySelectorAll('.view-video-prescription-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var videoAppointmentId = btn.getAttribute('data-video-appointment-id');
+      var loading = document.getElementById('prescription-loading');
+      var content = document.getElementById('prescription-content');
+      var error = document.getElementById('prescription-error');
+      loading.style.display = 'block';
+      content.style.display = 'none';
+      error.style.display = 'none';
+      prescriptionModal.show();
+      fetch(`/get-video-prescription-details/${videoAppointmentId}/`)
+        .then(response => response.json())
+        .then(data => {
+          loading.style.display = 'none';
+          if (data.success) {
+            document.getElementById('prescription-doctor-name').textContent = '';
+            document.getElementById('prescription-doctor-notes').textContent = '';
+            document.getElementById('prescription-diagnosis').textContent = data.diagnosis || '-';
+            var medicinesList = document.getElementById('prescription-medicines-list');
+            medicinesList.innerHTML = '';
+            if (data.medicines.length > 0) {
+              data.medicines.forEach(function(med) {
+                var li = document.createElement('li');
+                li.className = 'medicine-entry';
+                li.innerHTML = `
+                  <div class="medicine-title">${med.name}</div>
+                  <div class="medicine-details">${med.dosage} ${med.dosage_unit}, ${med.frequency}, for ${med.num_days} days${med.food_relation ? ', ' + med.food_relation : ''}</div>
+                  <a class="view-in-store-btn" href="/medicines/?highlight=${med.id}">View in Store</a>
+                `;
+                medicinesList.appendChild(li);
+              });
+            } else {
+              var li = document.createElement('li');
+              li.textContent = 'No medicines prescribed.';
+              medicinesList.appendChild(li);
+            }
+            var testsList = document.getElementById('prescription-tests-list');
+            testsList.innerHTML = '';
+            if (data.tests && data.tests.length > 0) {
+              data.tests.forEach(function(test) {
+                var li = document.createElement('li');
+                li.className = 'test-entry';
+                var priorityClass = test.priority === 'urgent' ? 'text-warning' : test.priority === 'emergency' ? 'text-danger' : 'text-info';
+                li.innerHTML = `
+                  <div class="test-title">${test.name} <span class="badge ${priorityClass}">${test.priority}</span></div>
+                  <div class="test-details">Sample: ${test.sample_required || 'Not specified'}${test.notes ? ', Notes: ' + test.notes : ''}</div>
+                  <a class="view-in-store-btn" href="/tests/?highlight=${test.id}">View in Store</a>
+                `;
+                testsList.appendChild(li);
+              });
+            } else {
+              var li = document.createElement('li');
+              li.textContent = 'No tests prescribed.';
+              testsList.appendChild(li);
+            }
+            content.style.display = 'block';
+            // Show download PDF button for video appointment
+            const downloadBtn = document.getElementById('download-prescription-pdf');
+            downloadBtn.style.display = 'inline-block';
+            downloadBtn.href = `/video-prescription-pdf/${videoAppointmentId}/`;
           } else {
             error.textContent = data.error || 'No prescription found.';
             error.style.display = 'block';

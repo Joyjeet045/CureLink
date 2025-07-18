@@ -16,9 +16,15 @@
 <body>
     <div class="header">
         <h2>Prescription</h2>
-        <p><strong>Doctor:</strong> {{ appointment.doctor.get_name }}</p>
-        <p><strong>Patient:</strong> {{ appointment.user.get_full_name|default:appointment.user.username }}</p>
-        <p><strong>Date:</strong> {{ appointment.appointment_date }}</p>
+        <p><strong>Doctor:</strong> {% if appointment.doctor %}{{ appointment.doctor.get_name }}{% endif %}</p>
+        <p><strong>Patient:</strong> 
+            {% if appointment.patient %}
+                {{ appointment.patient.get_full_name|default:appointment.patient.username }}
+            {% else %}
+                {{ appointment.user.get_full_name|default:appointment.user.username }}
+            {% endif %}
+        </p>
+        <p><strong>Date:</strong> {% if appointment.appointment_date %}{{ appointment.appointment_date }}{% else %}{{ appointment.start_time|date:"Y-m-d" }}{% endif %}</p>
     </div>
     <div class="section">
         <div class="section-title">Diagnosis</div>

@@ -20,6 +20,11 @@ urlpatterns=[
   path('update-order-status/<int:order_id>/', views.update_order_status, name='update_order_status'),
   path('add-prescription/<int:appointment_id>/', views.add_prescription, name='add_prescription'),
   path('get-prescription-details/<int:appointment_id>/', views.get_prescription_details, name='get_prescription_details'),
+  path('prescription-pdf/<int:appointment_id>/', views.prescription_pdf, name='prescription_pdf'),
+  # Video appointment prescription URLs
+  path('add-video-prescription/<int:video_appointment_id>/', views.add_video_prescription, name='add_video_prescription'),
+  path('get-video-prescription-details/<int:video_appointment_id>/', views.get_video_prescription_details, name='get_video_prescription_details'),
+  path('video-prescription-pdf/<int:video_appointment_id>/', views.video_prescription_pdf, name='video_prescription_pdf'),
   path('check-existing-appointments/', views.check_existing_appointments, name='check_existing_appointments'),
   path('doctor-take-leave/', views.doctor_take_leave, name='doctor_take_leave'),
   path('toggle-video-online/', views.toggle_video_online, name='toggle_video_online'),
@@ -42,5 +47,4 @@ urlpatterns=[
   path('get-appointment-status/<int:appointment_id>/', views.get_appointment_status, name='get_appointment_status'),
   path('video-consultation/<int:room_id>/', views.video_consultation, name='video_consultation_room'),
   path('test-report/<int:order_id>/', views.view_test_report, name='view_test_report'),
-  path('prescription-pdf/<int:appointment_id>/', views.prescription_pdf, name='prescription_pdf'),
 ]

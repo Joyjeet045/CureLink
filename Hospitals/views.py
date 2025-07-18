@@ -467,9 +467,20 @@ def dashboard(request):
             Q(doctor=doctor, appointment_date__gt=today)
         )
         past_appointments = Appointment.objects.filter(doctor=doctor, appointment_date__lt=today)
+        # Video appointments for doctor
+        upcoming_video_appointments = VideoAppointment.objects.filter(
+            doctor=doctor,
+            start_time__gte=now
+        ).order_by('start_time')
+        past_video_appointments = VideoAppointment.objects.filter(
+            doctor=doctor,
+            end_time__lt=now
+        ).order_by('-end_time')
         return render(request, 'Hospital/dashboard.html', {
             'upcoming_appointments': upcoming_appointments,
             'past_appointments': past_appointments,
+            'upcoming_video_appointments': upcoming_video_appointments,
+            'past_video_appointments': past_video_appointments,
             'is_doctor': True,
             'doctor_status': doctor_status
         })
@@ -479,6 +490,15 @@ def dashboard(request):
             Q(user=user, appointment_date__gt=today)
         )
         past_appointments = Appointment.objects.filter(user=user, appointment_date__lt=today)
+        # Video appointments for user (patient)
+        upcoming_video_appointments = VideoAppointment.objects.filter(
+            patient=user,
+            start_time__gte=now
+        ).order_by('start_time')
+        past_video_appointments = VideoAppointment.objects.filter(
+            patient=user,
+            end_time__lt=now
+        ).order_by('-end_time')
         # Get medicine orders for the user
         medicine_orders = MedicineOrder.objects.filter(user=user).order_by('-order_date')
         # Get test orders for the user, separated into upcoming and past
@@ -487,6 +507,8 @@ def dashboard(request):
         return render(request, 'Hospital/dashboard.html', {
             'upcoming_appointments': upcoming_appointments,
             'past_appointments': past_appointments,
+            'upcoming_video_appointments': upcoming_video_appointments,
+            'past_video_appointments': past_video_appointments,
             'medicine_orders': medicine_orders,
             'upcoming_test_orders': upcoming_test_orders,
             'past_test_orders': past_test_orders,
@@ -1491,6 +1513,108 @@ def prescription_pdf(request, appointment_id):
     if not pdf.err:
         response = HttpResponse(result.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=prescription_{appointment_id}.pdf'
+        return response
+    return HttpResponse('Error generating PDF', status=500)
+
+def add_video_prescription(request, video_appointment_id):
+    video_appointment = get_object_or_404(VideoAppointment, id=video_appointment_id)
+    medicines = Medicine.objects.all()
+    test_types = TestType.objects.all()
+    if request.method == 'POST':
+        medicine_ids = request.POST.getlist('medicine')
+        dosages = request.POST.getlist('dosage')
+        dosage_units = request.POST.getlist('dosage_unit')
+        num_days_list = request.POST.getlist('num_days')
+        frequencies = request.POST.getlist('frequency')
+        food_relations = request.POST.getlist('food_relation')
+        diagnosis = request.POST.get('diagnosis', '')
+        test_type_ids = request.POST.getlist('test_type')
+        priorities = request.POST.getlist('priority')
+        test_notes = request.POST.getlist('test_notes')
+        with transaction.atomic():
+            Prescription.objects.filter(video_appointment=video_appointment).delete()
+            prescription = Prescription.objects.create(video_appointment=video_appointment, diagnosis=diagnosis)
+            for i in range(len(medicine_ids)):
+                if medicine_ids[i]:
+                    medicine_obj = Medicine.objects.get(id=medicine_ids[i])
+                    MedicineEntry.objects.create(
+                        prescription=prescription,
+                        medicine=medicine_obj,
+                        dosage=dosages[i],
+                        dosage_unit=dosage_units[i],
+                        num_days=num_days_list[i],
+                        frequency=frequencies[i],
+                        food_relation=food_relations[i]
+                    )
+            for i in range(len(test_type_ids)):
+                if test_type_ids[i]:
+                    test_type_obj = TestType.objects.get(id=test_type_ids[i])
+                    PrescriptionTest.objects.create(
+                        prescription=prescription,
+                        test_type=test_type_obj,
+                        notes=test_notes[i],
+                        priority=priorities[i]
+                    )
+        return JsonResponse({'success': True, 'message': 'Prescription sent to patient.'})
+    return render(request, 'Hospital/prescription_form.html', {
+        'video_appointment': video_appointment,
+        'medicines': medicines,
+        'test_types': test_types
+    })
+
+def get_video_prescription_details(request, video_appointment_id):
+    video_appointment = get_object_or_404(VideoAppointment, id=video_appointment_id)
+    if request.user != video_appointment.patient:
+        raise PermissionDenied("You are not authorized to view this prescription.")
+    try:
+        prescription = video_appointment.prescription
+    except Prescription.DoesNotExist:
+        return JsonResponse({"success": False, "error": "No prescription found for this video appointment."}, status=404)
+    medicines = [
+        {
+            "id": entry.medicine.id,
+            "name": entry.medicine.name,
+            "dosage": entry.dosage,
+            "dosage_unit": entry.dosage_unit,
+            "num_days": entry.num_days,
+            "frequency": entry.frequency,
+            "food_relation": entry.food_relation,
+        }
+        for entry in prescription.medicines.all()
+    ]
+    tests = [
+        {
+            "id": entry.test_type.id,
+            "name": entry.test_type.name,
+            "priority": entry.priority,
+            "notes": entry.notes,
+            "sample_required": entry.test_type.sample_required,
+        }
+        for entry in prescription.tests.all()
+    ]
+    data = {
+        "success": True,
+        "diagnosis": prescription.diagnosis,
+        "medicines": medicines,
+        "tests": tests,
+    }
+    return JsonResponse(data)
+
+def video_prescription_pdf(request, video_appointment_id):
+    video_appointment = get_object_or_404(VideoAppointment, id=video_appointment_id)
+    try:
+        prescription = video_appointment.prescription
+    except Prescription.DoesNotExist:
+        return HttpResponse('No prescription found.', status=404)
+    # Pass 'appointment' as video_appointment for template compatibility
+    html = render_to_string('Hospital/prescription_pdf.html', {'appointment': video_appointment, 'prescription': prescription, 'video_appointment': video_appointment})
+    from xhtml2pdf import pisa
+    import io
+    result = io.BytesIO()
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode('UTF-8')), result)
+    if not pdf.err:
+        response = HttpResponse(result.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename=video_prescription_{video_appointment_id}.pdf'
         return response
     return HttpResponse('Error generating PDF', status=500)
 
