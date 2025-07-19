@@ -1,71 +1,36 @@
 # 🩺 CureLink
 
-**CureLink** is a Django-powered healthcare **superapp** designed to seamlessly connect patients, doctors, hospitals, and pharmacies on a unified platform.
+**CureLink** is a Django-powered healthcare **superapp** that seamlessly connects patients, doctors, hospitals, and pharmacies on a unified platform.
+
+![Healthcare Platform](https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=400&fit=crop)
+![Medical Technology](https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=400&fit=crop)
 
 ---
 
-## 🌟 Features
+## 🌟 Key Features
 
 ### 👥 Patient Portal
-
-- **Register & Manage Profile**
-- **Book Appointments**
-  - Choose from multiple hospitals and clinics
-  - Select preferred slots (subject to availability)
-- **Navigation**
-  - Get the **shortest route to the hospital** via integrated maps after booking
-- **e-Prescriptions**
-  - View prescriptions issued by your doctor
-  - Includes recommended medicines
-- **Medicines**
-  - Order medicines from the in-app pharmacy
-  - **Cart functionality** for selecting multiple medicines
-  - Prescription validation required for **restricted drugs**
-- **Tests & Diagnostics**
-  - Book diagnostic tests at nearby hospitals/clinics within **50 km radius**
-  - **Conflict detection** between tests to avoid overlaps or contradictions
-  - **Cart system** for bundling tests
-- **Video Consultations**
-  - **Real-time consultations** via **WebRTC** powered by Django Channels
-  - **LLM + Semantic Similarity** based **doctor matching** based on symptoms provided by the patient
-- **Notifications**
-  - Receive **appointment reminders 5 hours in advance via email**
-- **Reviews & Ratings**
-  - Submit in-app **reviews and ratings for doctors and hospitals**
-
----
+- **Appointment Booking** with route navigation to hospitals
+- **e-Prescriptions** with medicine ordering and cart functionality
+- **Diagnostic Tests** booking within 50km radius with conflict detection
+- **Video Consultations** via WebRTC with AI-powered doctor matching
+- **Email reminders** 5 hours before appointments
+- **Reviews & Ratings** for healthcare providers
 
 ### 💊 Pharmacy & Medicine Ordering
-
-- **Browse and order prescribed medicines** through the in-app **pharmacy service**
-- Medicines with restrictions (e.g., requiring a prescription) are **validated before delivery**
-- Sellers from different companies can **update inventory**
-- **Search, add to cart, and checkout seamlessly**
-
----
+- **Prescription validation** for restricted drugs
+- **Inventory management** for multiple sellers
+- **Seamless search and checkout** experience
 
 ### 🏥 Hospital & Clinic Admin Portal
-
-- **Register Clinics or Hospitals**
-- **Manage Doctors**
-  - Add doctors already practicing at your facility
-  - Verify doctor self-registrations linking to your clinic
-- **Inventory Management** for associated pharmacies and test centers
-
----
+- **Facility registration** and doctor management
+- **Inventory control** for pharmacies and test centers
+- **Doctor verification** system
 
 ### 🩺 Doctor Portal
-
-- **Self-Registration**
-  - Doctors can register themselves
-  - Link existing practicing locations (pending admin verification)
-- **Manage Appointments**
-  - View upcoming appointments and patient details
-- **Issue e-Prescriptions**
-  - Prescribe medicines directly to patients
-- **View Patient History**
-  - Access prior appointments, prescriptions, and diagnostic results
-- **Conduct Video Consultations** in-app
+- **Self-registration** with location linking
+- **Appointment management** and patient history access
+- **e-Prescription issuance** and video consultations
 
 ---
 
@@ -74,27 +39,49 @@
 - **Backend**: Django
 - **Database**: PostgreSQL
 - **Frontend**: Django Templates + Bootstrap
-- **Scheduler**: Celery + Redis (for cron reminders)
-- **Maps Integration**: React Leaflet API
+- **Scheduler**: Celery + Redis
+- **Maps**: React Leaflet API
 - **Video Calls**: WebRTC + Django Channels
-- **Doctor Matching**: LLM + Semantic Similarity on patient symptoms
-- **Email Notifications**: Django Email Backend
+- **AI Matching**: SentenceTransformers + FAISS + Groq
 - **Containerization**: Docker & Docker Compose
 
 ---
 
-## ▶️ Running the Application
+## ▶️ Quick Start
 
-To start the backend server, Redis, Celery beat, and Celery worker manually:
-
+### Manual Setup
 ```bash
 daphne doctors_app.asgi:application
 redis-server
 celery -A doctors_app beat --loglevel=info
 celery -A doctors_app worker --pool=eventlet -l info
 ```
-To run the full stack using Docker Compose:
 
+### Docker Setup
 ```bash
 docker compose up --build
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- Create an issue on GitHub
+- Check the test files for usage examples
+- Review the architecture documentation
+
+Happy Trading! 🚀📈
+
 
