@@ -2,8 +2,7 @@
 
 **CureLink** is a Django-powered healthcare **superapp** that seamlessly connects patients, doctors, hospitals, and pharmacies on a unified platform.
 
-![Healthcare Platform](https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=400&fit=crop)
-![Medical Technology](https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=400&fit=crop)
+![Modern Healthcare Platform](https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=800&h=400&fit=crop)
 
 ---
 
