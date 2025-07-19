@@ -75,12 +75,4 @@ docker compose up --build
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
-
-- Create an issue on GitHub
-- Check the test files for usage examples
-- Review the architecture documentation
-
-Happy Trading! 🚀📈
-
-
+Happy Coding! 🚀
